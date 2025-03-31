@@ -12,6 +12,12 @@ import { PropertyPanel, exampleProperties } from './components/PropertyPanel';
 import { AssetBrowser, exampleAssets } from './components/AssetBrowser';
 import { Console, exampleLogs, LogEntry } from './components/Console';
 
+// 导入引擎相关类
+import Engine from '../core/Engine';
+import { Scene } from '../core/Scene';
+import { Node3d } from '../core/Node3d';
+import * as THREE from 'three';
+
 // 主题配置
 const darkTheme = createTheme({
   palette: {
@@ -156,6 +162,7 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
   const [isModified, setIsModified] = useState(false);
   const [editorStatus, setEditorStatus] = useState('就绪');
   const sceneViewRef = useRef<HTMLDivElement>(null);
+  const [engineInstance, setEngineInstance] = useState<Engine | null>(null);
   
   // FPS计时器
   useEffect(() => {
@@ -181,6 +188,78 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
       cancelAnimationFrame(animationId);
     };
   }, []);
+  
+  // 在组件挂载后初始化引擎
+  useEffect(() => {
+    if (sceneViewRef.current) {
+      // 创建引擎实例，传入场景视图DOM元素
+      const engine = new Engine(sceneViewRef.current);
+      
+      // 初始化引擎
+      engine.init({
+        showHelpers: true,
+        addDefaultLights: true,
+        useWebGPU: true
+      }).then(() => {
+        console.log('引擎初始化成功');
+        setEngineInstance(engine);
+        
+        // 创建默认场景
+        const defaultScene = new Scene('默认场景');
+        engine.addScene(defaultScene);
+        engine.activateScene('默认场景');
+        
+        // 启动引擎
+        engine.start();
+        
+        // 更新场景数据到UI
+        updateSceneData(engine);
+      }).catch(error => {
+        console.error('引擎初始化失败:', error);
+      });
+    }
+    
+    // 组件卸载时清理引擎
+    return () => {
+      if (engineInstance) {
+        engineInstance.dispose();
+      }
+    };
+  }, [sceneViewRef]);
+  
+  // 更新场景数据到UI组件
+  const updateSceneData = (engine: Engine) => {
+    // 1. 获取场景树数据
+    const activeScene = engine.getScene('默认场景');
+    if (activeScene) {
+      // 获取场景根节点
+      const rootNode = activeScene.getRootNode();
+      
+      // 递归构建场景树
+      const buildSceneTree = (node: Node3d): any => {
+        return {
+          id: node.getId(),
+          name: node.getName(),
+          type: node.constructor.name as any,
+          visible: node.getThreeObject().visible,
+          children: node.getChildren().map(child => buildSceneTree(child))
+        };
+      };
+      
+      // 构建场景树数据
+      const sceneTreeData = [buildSceneTree(rootNode)];
+      
+      // 2. 获取属性数据 - 这里先使用示例数据
+      // 实际应用中应该根据选中对象动态生成
+      
+      // 3. 获取资源数据 - 先使用示例数据
+      // 实际应用中应该读取项目资源列表
+      
+      // 更新状态
+      // setSceneNodes(sceneTreeData);
+      // 在实际应用中，这里会更新UI状态
+    }
+  };
   
   // 切换面板可见性
   const togglePanelVisibility = (panelId: string) => {
@@ -250,29 +329,105 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
     const nodeName = findNodeName(exampleSceneNodes, nodeId);
     setSelectedNodeName(nodeName);
     
-    // 在实际应用中，这里会加载选中节点的属性
-    addLog({
-      id: Date.now().toString(),
-      timestamp: new Date(),
-      message: `已选中节点: ${nodeName} (${nodeId})`,
-      severity: 'info',
-      source: '编辑器'
-    });
+    // 获取引擎中的节点
+    if (engineInstance) {
+      const node = engineInstance.getNodeById(nodeId);
+      if (node) {
+        // 更新属性面板数据
+        const nodeProperties = extractNodeProperties(node);
+        // 这里会根据节点类型生成不同的属性UI
+        
+        // 在日志中显示选中信息
+        addLog({
+          id: Date.now().toString(),
+          timestamp: new Date(),
+          message: `已选中节点: ${node.getName()} (${nodeId})`,
+          severity: 'info',
+          source: '编辑器'
+        });
+      }
+    }
+  };
+  
+  // 提取节点属性
+  const extractNodeProperties = (node: Node3d) => {
+    const threeObject = node.getThreeObject();
+    
+    return [
+      {
+        id: 'transform',
+        name: '变换',
+        properties: [
+          {
+            id: 'position',
+            name: '位置',
+            type: 'vector3',
+            value: { 
+              x: threeObject.position.x,
+              y: threeObject.position.y,
+              z: threeObject.position.z
+            }
+          },
+          {
+            id: 'rotation',
+            name: '旋转',
+            type: 'vector3',
+            value: {
+              x: threeObject.rotation.x,
+              y: threeObject.rotation.y,
+              z: threeObject.rotation.z
+            }
+          },
+          {
+            id: 'scale',
+            name: '缩放',
+            type: 'vector3',
+            value: {
+              x: threeObject.scale.x,
+              y: threeObject.scale.y,
+              z: threeObject.scale.z
+            }
+          }
+        ]
+      },
+      // 根据节点类型添加更多属性组...
+    ];
   };
   
   // 处理属性变更
   const handlePropertyChange = (property: any) => {
-    // 模拟编辑状态变更
-    setIsModified(true);
-    
-    // 在实际应用中，这里会更新场景中的对象属性
-    addLog({
-      id: Date.now().toString(),
-      timestamp: new Date(),
-      message: `属性已更改: ${property.name} = ${JSON.stringify(property.value)}`,
-      severity: 'info',
-      source: '属性'
-    });
+    // 更新引擎中的对象属性
+    if (engineInstance && selectedNodeId) {
+      const node = engineInstance.getNodeById(selectedNodeId);
+      if (node) {
+        const threeObject = node.getThreeObject();
+        
+        // 根据属性ID更新对象
+        if (property.id === 'position' && property.type === 'vector3') {
+          threeObject.position.set(
+            property.value.x,
+            property.value.y,
+            property.value.z
+          );
+        } else if (property.id === 'rotation' && property.type === 'vector3') {
+          threeObject.rotation.set(
+            property.value.x,
+            property.value.y,
+            property.value.z
+          );
+        } else if (property.id === 'scale' && property.type === 'vector3') {
+          threeObject.scale.set(
+            property.value.x,
+            property.value.y,
+            property.value.z
+          );
+        }
+        // 处理其他属性...
+        
+        // 标记为已修改
+        setIsModified(true);
+      }
+    }
   };
   
   // 处理资源选择

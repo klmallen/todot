@@ -45,12 +45,14 @@ interface AssetBrowserProps {
   assets: Asset[];
   onAssetSelect?: (asset: Asset) => void;
   onAssetDrop?: (asset: Asset, targetFolder: string) => void;
+  engine?: any;  // 添加引擎实例参数
 }
 
 export const AssetBrowser: React.FC<AssetBrowserProps> = ({
   assets,
   onAssetSelect,
-  onAssetDrop
+  onAssetDrop,
+  engine
 }) => {
   const [currentPath, setCurrentPath] = useState<string>('/');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -139,14 +141,52 @@ export const AssetBrowser: React.FC<AssetBrowserProps> = ({
     );
   };
 
-  // 处理资源点击
+  // 添加资源加载处理函数
+  const handleAssetLoad = async (asset: Asset) => {
+    if (!engine) return;
+    
+    try {
+      // 根据资源类型处理
+      if (asset.type === 'model') {
+        // 使用Three.js加载模型
+        const activeScene = engine.getScene(engine.getActiveSceneName());
+        if (activeScene) {
+          // 这里应该实现模型加载逻辑
+          addLog({
+            id: Date.now().toString(),
+            timestamp: new Date(),
+            message: `正在加载模型: ${asset.name}`,
+            severity: 'info',
+            source: '资源'
+          });
+        }
+      } else if (asset.type === 'texture') {
+        // 加载纹理资源
+        // 实现纹理加载逻辑
+      }
+      // 处理其他资源类型...
+      
+      onAssetSelect && onAssetSelect(asset);
+    } catch (error) {
+      console.error(`加载资源 ${asset.name} 失败:`, error);
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `加载资源失败: ${asset.name}`,
+        severity: 'error',
+        source: '资源'
+      });
+    }
+  };
+
+  // 修改资源点击处理函数
   const handleAssetClick = (asset: Asset) => {
     if (asset.type === 'folder') {
       // 导航到文件夹
       setCurrentPath(asset.path);
     } else {
-      // 选择资源
-      onAssetSelect && onAssetSelect(asset);
+      // 选择并加载资源
+      handleAssetLoad(asset);
     }
   };
 
