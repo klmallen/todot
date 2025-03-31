@@ -18,6 +18,9 @@ import { Scene } from '../core/Scene';
 import { Node3d } from '../core/Node3d';
 import * as THREE from 'three';
 
+// 导入集成模块
+import { EditorEngineIntegration } from './EditorEngineIntegration';
+
 // 主题配置
 const darkTheme = createTheme({
   palette: {
@@ -163,6 +166,10 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
   const [editorStatus, setEditorStatus] = useState('就绪');
   const sceneViewRef = useRef<HTMLDivElement>(null);
   const [engineInstance, setEngineInstance] = useState<Engine | null>(null);
+  const [editorIntegration, setEditorIntegration] = useState<EditorEngineIntegration | null>(null);
+  const [sceneNodes, setSceneNodes] = useState<SceneNode[]>(exampleSceneNodes);
+  const [nodeProperties, setNodeProperties] = useState<PropertyCategory[]>(exampleProperties);
+  const [projectAssets, setProjectAssets] = useState<Asset[]>(exampleAssets);
   
   // FPS计时器
   useEffect(() => {
@@ -189,76 +196,163 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
     };
   }, []);
   
-  // 在组件挂载后初始化引擎
+  // 初始化引擎
   useEffect(() => {
-    if (sceneViewRef.current) {
-      // 创建引擎实例，传入场景视图DOM元素
-      const engine = new Engine(sceneViewRef.current);
-      
-      // 初始化引擎
-      engine.init({
-        showHelpers: true,
-        addDefaultLights: true,
-        useWebGPU: true
-      }).then(() => {
-        console.log('引擎初始化成功');
-        setEngineInstance(engine);
-        
-        // 创建默认场景
-        const defaultScene = new Scene('默认场景');
-        engine.addScene(defaultScene);
-        engine.activateScene('默认场景');
-        
-        // 启动引擎
-        engine.start();
-        
-        // 更新场景数据到UI
-        updateSceneData(engine);
-      }).catch(error => {
-        console.error('引擎初始化失败:', error);
-      });
-    }
+    // 确保DOM元素已经存在
+    if (!sceneViewRef.current) return;
     
-    // 组件卸载时清理引擎
+    // 创建引擎实例
+    const engine = new Engine(sceneViewRef.current);
+    
+    // 初始化引擎
+    engine.init({
+      useWebGPU: true,
+      addDefaultLights: true,
+      showHelpers: true
+    }).then(() => {
+      console.log('引擎初始化成功');
+      
+      // 创建默认场景
+      const defaultScene = new Scene('默认场景');
+      engine.addScene(defaultScene);
+      engine.activateScene('默认场景');
+      
+      // 创建集成模块
+      const integration = new EditorEngineIntegration(engine);
+      integration.setActiveScene('默认场景');
+      
+      // 更新状态
+      setEngineInstance(engine);
+      setEditorIntegration(integration);
+      
+      // 从引擎加载数据
+      updateEditorData(integration);
+      
+      // 启动引擎
+      engine.start();
+    }).catch(error => {
+      console.error('引擎初始化失败:', error);
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `引擎初始化失败: ${error.message}`,
+        severity: 'error',
+        source: '系统'
+      });
+    });
+    
+    // 组件卸载时清理
     return () => {
       if (engineInstance) {
         engineInstance.dispose();
       }
     };
-  }, [sceneViewRef]);
+  }, []);
   
-  // 更新场景数据到UI组件
-  const updateSceneData = (engine: Engine) => {
-    // 1. 获取场景树数据
-    const activeScene = engine.getScene('默认场景');
-    if (activeScene) {
-      // 获取场景根节点
-      const rootNode = activeScene.getRootNode();
+  // 从引擎更新编辑器数据
+  const updateEditorData = (integration: EditorEngineIntegration) => {
+    // 更新场景树
+    const sceneTreeData = integration.getSceneTreeData();
+    setSceneNodes(sceneTreeData);
+    
+    // 更新资源数据（实际应用中需要实现）
+    // const assets = integration.getProjectAssets();
+    // setProjectAssets(assets);
+    
+    // 如果有选中节点，更新其属性
+    if (selectedNodeId) {
+      const properties = integration.getNodeProperties(selectedNodeId);
+      setNodeProperties(properties);
+    }
+  };
+  
+  // 处理节点选择
+  const handleNodeSelect = (nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    
+    // 获取节点名称
+    if (editorIntegration) {
+      const properties = editorIntegration.getNodeProperties(nodeId);
+      setNodeProperties(properties);
       
-      // 递归构建场景树
-      const buildSceneTree = (node: Node3d): any => {
-        return {
-          id: node.getId(),
-          name: node.getName(),
-          type: node.constructor.name as any,
-          visible: node.getThreeObject().visible,
-          children: node.getChildren().map(child => buildSceneTree(child))
-        };
+      // 查找节点名称
+      const findNodeName = (nodes: SceneNode[], id: string): string => {
+        for (const node of nodes) {
+          if (node.id === id) {
+            return node.name;
+          }
+          if (node.children) {
+            const name = findNodeName(node.children, id);
+            if (name) return name;
+          }
+        }
+        return '';
       };
       
-      // 构建场景树数据
-      const sceneTreeData = [buildSceneTree(rootNode)];
+      const nodeName = findNodeName(sceneNodes, nodeId);
+      setSelectedNodeName(nodeName);
       
-      // 2. 获取属性数据 - 这里先使用示例数据
-      // 实际应用中应该根据选中对象动态生成
-      
-      // 3. 获取资源数据 - 先使用示例数据
-      // 实际应用中应该读取项目资源列表
-      
-      // 更新状态
-      // setSceneNodes(sceneTreeData);
-      // 在实际应用中，这里会更新UI状态
+      // 添加日志
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `已选中节点: ${nodeName} (${nodeId})`,
+        severity: 'info',
+        source: '编辑器'
+      });
     }
+  };
+  
+  // 处理属性变更
+  const handlePropertyChange = (property: Property) => {
+    if (!editorIntegration || !selectedNodeId) return;
+    
+    // 更新引擎中的属性
+    const success = editorIntegration.updateNodeProperty(
+      selectedNodeId,
+      property.id,
+      property.value
+    );
+    
+    if (success) {
+      // 标记为已修改
+      setIsModified(true);
+      
+      // 添加日志
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `属性已更改: ${property.name} = ${JSON.stringify(property.value)}`,
+        severity: 'info',
+        source: '属性'
+      });
+    }
+  };
+  
+  // 处理资源选择
+  const handleAssetSelect = (asset: Asset) => {
+    if (!editorIntegration) return;
+    
+    // 加载资源
+    editorIntegration.loadAsset(asset).then(success => {
+      if (success) {
+        addLog({
+          id: Date.now().toString(),
+          timestamp: new Date(),
+          message: `已加载资源: ${asset.name}`,
+          severity: 'info',
+          source: '资源'
+        });
+      } else {
+        addLog({
+          id: Date.now().toString(),
+          timestamp: new Date(),
+          message: `加载资源失败: ${asset.name}`,
+          severity: 'warning',
+          source: '资源'
+        });
+      }
+    });
   };
   
   // 切换面板可见性
@@ -308,140 +402,6 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
     }
   };
   
-  // 处理场景节点选择
-  const handleNodeSelect = (nodeId: string) => {
-    setSelectedNodeId(nodeId);
-    
-    // 查找节点名称
-    const findNodeName = (nodes: any[], id: string): string => {
-      for (const node of nodes) {
-        if (node.id === id) {
-          return node.name;
-        }
-        if (node.children) {
-          const name = findNodeName(node.children, id);
-          if (name) return name;
-        }
-      }
-      return '';
-    };
-    
-    const nodeName = findNodeName(exampleSceneNodes, nodeId);
-    setSelectedNodeName(nodeName);
-    
-    // 获取引擎中的节点
-    if (engineInstance) {
-      const node = engineInstance.getNodeById(nodeId);
-      if (node) {
-        // 更新属性面板数据
-        const nodeProperties = extractNodeProperties(node);
-        // 这里会根据节点类型生成不同的属性UI
-        
-        // 在日志中显示选中信息
-        addLog({
-          id: Date.now().toString(),
-          timestamp: new Date(),
-          message: `已选中节点: ${node.getName()} (${nodeId})`,
-          severity: 'info',
-          source: '编辑器'
-        });
-      }
-    }
-  };
-  
-  // 提取节点属性
-  const extractNodeProperties = (node: Node3d) => {
-    const threeObject = node.getThreeObject();
-    
-    return [
-      {
-        id: 'transform',
-        name: '变换',
-        properties: [
-          {
-            id: 'position',
-            name: '位置',
-            type: 'vector3',
-            value: { 
-              x: threeObject.position.x,
-              y: threeObject.position.y,
-              z: threeObject.position.z
-            }
-          },
-          {
-            id: 'rotation',
-            name: '旋转',
-            type: 'vector3',
-            value: {
-              x: threeObject.rotation.x,
-              y: threeObject.rotation.y,
-              z: threeObject.rotation.z
-            }
-          },
-          {
-            id: 'scale',
-            name: '缩放',
-            type: 'vector3',
-            value: {
-              x: threeObject.scale.x,
-              y: threeObject.scale.y,
-              z: threeObject.scale.z
-            }
-          }
-        ]
-      },
-      // 根据节点类型添加更多属性组...
-    ];
-  };
-  
-  // 处理属性变更
-  const handlePropertyChange = (property: any) => {
-    // 更新引擎中的对象属性
-    if (engineInstance && selectedNodeId) {
-      const node = engineInstance.getNodeById(selectedNodeId);
-      if (node) {
-        const threeObject = node.getThreeObject();
-        
-        // 根据属性ID更新对象
-        if (property.id === 'position' && property.type === 'vector3') {
-          threeObject.position.set(
-            property.value.x,
-            property.value.y,
-            property.value.z
-          );
-        } else if (property.id === 'rotation' && property.type === 'vector3') {
-          threeObject.rotation.set(
-            property.value.x,
-            property.value.y,
-            property.value.z
-          );
-        } else if (property.id === 'scale' && property.type === 'vector3') {
-          threeObject.scale.set(
-            property.value.x,
-            property.value.y,
-            property.value.z
-          );
-        }
-        // 处理其他属性...
-        
-        // 标记为已修改
-        setIsModified(true);
-      }
-    }
-  };
-  
-  // 处理资源选择
-  const handleAssetSelect = (asset: any) => {
-    // 在实际应用中，这里会处理资源的选择逻辑
-    addLog({
-      id: Date.now().toString(),
-      timestamp: new Date(),
-      message: `已选择资源: ${asset.name}`,
-      severity: 'info',
-      source: '资源'
-    });
-  };
-  
   // 添加日志
   const addLog = (log: LogEntry) => {
     setLogs(prevLogs => [...prevLogs, log]);
@@ -479,13 +439,8 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
       });
     } else if (command === 'save') {
       setIsModified(false);
-      addLog({
-        id: Date.now().toString(),
-        timestamp: new Date(),
-        message: `项目已保存`,
-        severity: 'info',
-        source: '控制台'
-      });
+      setEditorStatus('已保存');
+      setTimeout(() => setEditorStatus('就绪'), 3000);
     }
   };
   
@@ -633,19 +588,19 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
               >
                 {panel.id === 'sceneTree' && (
                   <SceneTreeView 
-                    nodes={exampleSceneNodes} 
+                    nodes={sceneNodes} 
                     onNodeSelect={handleNodeSelect}
                   />
                 )}
                 {panel.id === 'properties' && (
                   <PropertyPanel 
-                    categories={exampleProperties}
+                    categories={nodeProperties}
                     onPropertyChange={handlePropertyChange}
                   />
                 )}
                 {panel.id === 'assets' && (
                   <AssetBrowser 
-                    assets={exampleAssets}
+                    assets={projectAssets}
                     onAssetSelect={handleAssetSelect}
                   />
                 )}
