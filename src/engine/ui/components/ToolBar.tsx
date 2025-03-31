@@ -15,7 +15,7 @@ import {
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import SaveIcon from '@mui/icons-material/Save';
-import CubeIcon from '@mui/icons-material/Crop3D';
+import CubeIcon from '@mui/icons-material/Save';
 import SphereIcon from '@mui/icons-material/SportsBaseball';
 import CylinderIcon from '@mui/icons-material/RadioButtonChecked';
 import PlaneIcon from '@mui/icons-material/Straighten';

@@ -15,7 +15,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import CubeIcon from '@mui/icons-material/Cube';
+import CubeIcon from '@mui/icons-material/VisibilityOff';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import TextFieldsIcon from '@mui/icons-material/TextFields';

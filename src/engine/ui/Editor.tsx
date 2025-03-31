@@ -21,6 +21,10 @@ import * as THREE from 'three';
 // 导入集成模块
 import { EditorEngineIntegration } from './EditorEngineIntegration';
 
+// 导入缺少的图标组件
+import { Close as CloseIcon } from '@mui/icons-material';
+import { IconButton } from '@mui/material';
+
 // 主题配置
 const darkTheme = createTheme({
   palette: {
@@ -41,121 +45,150 @@ const darkTheme = createTheme({
   },
 });
 
-interface EditorProps {
-  container: HTMLElement;
+enum PanelMode {
+  DOCKED = 'docked',     // 固定在布局中
+  HIDDEN = 'hidden',     // 隐藏
+  DRAGGABLE = 'draggable', // 可拖动
+  GROUPABLE = 'groupable'  // 可组合模式 - 新增
 }
 
-export class Editor {
-  private container: HTMLElement;
-  private panels: Map<string, {
-    visible: boolean;
-    position: { x: number, y: number };
-    size: { width: number, height: number };
-  }> = new Map();
-  
-  constructor(container: HTMLElement) {
-    this.container = container;
-    this.init();
-  }
-  
-  private init() {
-    // 初始化编辑器
-    this.initDefaultLayout();
-    this.renderEditor();
-  }
-  
-  private initDefaultLayout() {
-    // 设置默认布局
-    const containerRect = this.container.getBoundingClientRect();
-    const width = containerRect.width;
-    const height = containerRect.height;
-    
-    // 默认面板配置
-    this.panels.set('sceneTree', {
-      visible: true,
-      position: { x: 10, y: 90 },
-      size: { width: 250, height: 400 }
-    });
-    
-    this.panels.set('properties', {
-      visible: true,
-      position: { x: width - 260, y: 90 },
-      size: { width: 250, height: 400 }
-    });
-    
-    this.panels.set('assets', {
-      visible: true,
-      position: { x: 10, y: height - 210 },
-      size: { width: 500, height: 200 }
-    });
-    
-    this.panels.set('console', {
-      visible: true,
-      position: { x: width - 510, y: height - 210 },
-      size: { width: 500, height: 200 }
-    });
-  }
-  
-  private renderEditor() {
-    const editorApp = (
-      <EditorComponent container={this.container} />
-    );
-    
-    // 使用ReactDOM渲染到容器中
-    const root = document.createElement('div');
-    root.style.width = '100%';
-    root.style.height = '100%';
-    this.container.appendChild(root);
-    
-    // 这里应该调用ReactDOM.createRoot(root).render(editorApp)
-    // 但由于这只是类定义，我们将在实例化时处理
-  }
-  
-  // 公共方法：显示/隐藏面板
-  public togglePanel(panelId: string, visible?: boolean) {
-    const panel = this.panels.get(panelId);
-    if (panel) {
-      panel.visible = visible !== undefined ? visible : !panel.visible;
-      // 在实际实现中，这里会触发UI更新
-    }
-  }
-  
-  // 公共方法：设置面板位置
-  public setPanelPosition(panelId: string, position: { x: number, y: number }) {
-    const panel = this.panels.get(panelId);
-    if (panel) {
-      panel.position = position;
-      // 在实际实现中，这里会触发UI更新
-    }
-  }
-  
-  // 公共方法：设置面板大小
-  public setPanelSize(panelId: string, size: { width: number, height: number }) {
-    const panel = this.panels.get(panelId);
-    if (panel) {
-      panel.size = size;
-      // 在实际实现中，这里会触发UI更新
-    }
-  }
-  
-  // 公共方法：销毁编辑器
-  public dispose() {
-    // 清理资源
-    while (this.container.firstChild) {
-      this.container.removeChild(this.container.firstChild);
-    }
-  }
+// 将类型定义保留在外部
+interface PanelGroup {
+  id: string;
+  tabs: Panel[];
+  activeTab: string;
+  size?: number;
+  direction?: 'horizontal' | 'vertical';
 }
 
-// 编辑器React组件（内部使用）
-const EditorComponent: React.FC<EditorProps> = ({ container }) => {
+interface Panel {
+  id: string;
+  title: string;
+  icon?: string;
+  content: React.ReactNode;
+  mode: PanelMode;
+}
+
+// 添加拖拽状态接口
+interface DragState {
+  panelId: string;
+  sourceGroupId: string;
+  isDragging: boolean;
+}
+
+// EditorComponent 组件
+const EditorComponent: React.FC = () => {
+  // 将 useState 移动到组件内部
+  const [panelGroups, setPanelGroups] = useState([
+    {
+      id: 'leftGroup',
+      region: 'left',
+      tabs: [
+        { 
+          id: 'sceneTree', 
+          title: '场景树', 
+          mode: PanelMode.DOCKED,
+        }
+      ],
+      activeTab: 'sceneTree',
+      size: 250
+    },
+    {
+      id: 'rightGroup',
+      region: 'right',
+      tabs: [
+        { 
+          id: 'properties', 
+          title: '属性', 
+          mode: PanelMode.DOCKED,
+        }
+      ],
+      activeTab: 'properties',
+      size: 250
+    },
+    {
+      id: 'bottomGroup',
+      region: 'bottom',
+      tabs: [
+        { 
+          id: 'assets', 
+          title: '资源', 
+          mode: PanelMode.DOCKED,
+        },
+        { 
+          id: 'console', 
+          title: '控制台', 
+          mode: PanelMode.DOCKED,
+          locked: true  // 标记控制台为锁定状态，不能拖动
+        }
+      ],
+      activeTab: 'assets',
+      size: 200
+    }
+  ]);
+
+  // 添加缺失的 setActiveTab 函数
+  const setActiveTab = (groupId: string, tabId: string) => {
+    setPanelGroups(prevGroups => {
+      return prevGroups.map(group => {
+        if (group.id === groupId) {
+          return { ...group, activeTab: tabId };
+        }
+        return group;
+      });
+    });
+  };
+
+  // 添加缺失的 handleResizeStart 函数
+  const handleResizeStart = (e: React.MouseEvent, groupId: string) => {
+    const startX = e.clientX;
+    const startSize = panelGroups[groupId]?.[0]?.size || 0;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      resizeGroup(groupId, startSize + delta);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeName, setSelectedNodeName] = useState<string>('');
   const [panels, setPanels] = useState([
-    { id: 'sceneTree', title: '场景树', visible: true },
-    { id: 'properties', title: '属性', visible: true },
-    { id: 'assets', title: '资源', visible: true },
-    { id: 'console', title: '控制台', visible: true },
+    { 
+      id: 'sceneTree', 
+      title: '场景树', 
+      visible: true, 
+      mode: PanelMode.DOCKED,
+      dockedPosition: 'left'
+    },
+    { 
+      id: 'properties', 
+      title: '属性', 
+      visible: true, 
+      mode: PanelMode.DOCKED,
+      dockedPosition: 'right'
+    },
+    { 
+      id: 'assets', 
+      title: '资源', 
+      visible: true, 
+      mode: PanelMode.DOCKED,
+      dockedPosition: 'bottom'
+    },
+    { 
+      id: 'console', 
+      title: '控制台', 
+      visible: true, 
+      mode: PanelMode.DOCKED,
+      dockedPosition: 'bottom'
+    },
   ]);
   const [logs, setLogs] = useState<LogEntry[]>(exampleLogs);
   const [fps, setFps] = useState(60);
@@ -170,6 +203,31 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
   const [sceneNodes, setSceneNodes] = useState<SceneNode[]>(exampleSceneNodes);
   const [nodeProperties, setNodeProperties] = useState<PropertyCategory[]>(exampleProperties);
   const [projectAssets, setProjectAssets] = useState<Asset[]>(exampleAssets);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // 添加面板管理相关的状态和方法（从Editor类中移植）
+  const [panelSettings, setPanelSettings] = useState(new Map([
+    ['sceneTree', {
+      visible: true,
+      position: { x: 10, y: 90 },
+      size: { width: 250, height: 400 }
+    }],
+    ['properties', {
+      visible: true,
+      position: { x: window.innerWidth - 260, y: 90 },
+      size: { width: 250, height: 400 }
+    }],
+    ['assets', {
+      visible: true,
+      position: { x: 10, y: window.innerHeight - 210 },
+      size: { width: 500, height: 200 }
+    }],
+    ['console', {
+      visible: true,
+      position: { x: window.innerWidth - 510, y: window.innerHeight - 210 },
+      size: { width: 500, height: 200 }
+    }]
+  ]));
   
   // FPS计时器
   useEffect(() => {
@@ -201,8 +259,8 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
     // 确保DOM元素已经存在
     if (!sceneViewRef.current) return;
     
-    // 创建引擎实例
-    const engine = new Engine(sceneViewRef.current);
+    // 不要手动创建canvas，让引擎使用已有的或自己创建
+    const engine = new Engine(document.getElementById('scene-view-canvas') as HTMLCanvasElement);
     
     // 初始化引擎
     engine.init({
@@ -355,24 +413,109 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
     });
   };
   
-  // 切换面板可见性
+  // 面板控制功能（从Editor类移植）
+  const togglePanel = (panelId: string, visible?: boolean) => {
+    console.log(`切换面板 ${panelId} 可见性为 ${visible ?? 'toggle'}`);
+    setPanels(prevPanels => prevPanels.map(panel => 
+      panel.id === panelId 
+        ? { ...panel, visible: visible !== undefined ? visible : !panel.visible } 
+        : panel
+    ));
+  };
+  
+  // 其他面板控制功能
+  const setPanelPosition = (panelId: string, position: { x: number, y: number }) => {
+    // 在实际实现中，应该更新面板位置状态
+    console.log(`设置面板 ${panelId} 位置为`, position);
+  };
+  
+  const setPanelSize = (panelId: string, size: { width: number, height: number }) => {
+    // 在实际实现中，应该更新面板大小状态
+    console.log(`设置面板 ${panelId} 大小为`, size);
+  };
+  
+  // 修改处理菜单操作的函数，确保正确调用togglePanel
+  const handleMenuAction = (action: string, data?: any) => {
+    // 添加日志
+    addLog({
+      id: Date.now().toString(),
+      timestamp: new Date(),
+      message: `菜单操作: ${action} ${data ? JSON.stringify(data) : ''}`,
+      severity: 'info',
+      source: '菜单'
+    });
+    
+    // 处理特定的菜单动作
+    if (action === 'save') {
+      setIsModified(false);
+      setEditorStatus('已保存');
+      setTimeout(() => setEditorStatus('就绪'), 3000);
+    } else if (action === 'new_project') {
+      setProjectName('未命名项目');
+      setIsModified(false);
+    } else if (action === 'toggle_panel' && data?.panel) {
+      // 确保正确调用我们定义的togglePanel函数
+      togglePanel(data.panel);
+    }
+  };
+  
+  // 切换面板可见性 - 现在这个函数应该使用我们上面定义的togglePanel
   const togglePanelVisibility = (panelId: string) => {
-    setPanels(panels.map(panel => 
-      panel.id === panelId ? { ...panel, visible: !panel.visible } : panel
-    ));
+    setPanels(prevPanels => prevPanels.map(panel => {
+      if (panel.id === panelId) {
+        const newPanel = { ...panel };
+        // 如果面板是隐藏的，显示它并恢复之前的模式
+        if (!panel.visible) {
+          newPanel.visible = true;
+          // 如果之前是隐藏模式，设为可拖动模式
+          if (panel.mode === PanelMode.HIDDEN) {
+            newPanel.mode = PanelMode.DRAGGABLE;
+          }
+        } else {
+          // 如果面板是可见的，隐藏它
+          newPanel.visible = false;
+          newPanel.mode = PanelMode.HIDDEN;
+        }
+        return newPanel;
+      }
+      return panel;
+    }));
   };
   
-  // 关闭面板
+  // 关闭面板 - 使用togglePanel设置为false
   const closePanel = (panelId: string) => {
-    setPanels(panels.map(panel => 
-      panel.id === panelId ? { ...panel, visible: false } : panel
-    ));
+    togglePanel(panelId, false);
   };
   
-  // 计算初始位置
+  // 将闭包方法暴露给外部
+  useEffect(() => {
+    // 如果需要暴露方法给外部，可以挂载到window对象
+    if (typeof window !== 'undefined') {
+      (window as any).editorAPI = {
+        togglePanel,
+        setPanelPosition,
+        setPanelSize
+      };
+    }
+    
+    return () => {
+      // 清理
+      if (typeof window !== 'undefined') {
+        delete (window as any).editorAPI;
+      }
+    };
+  }, []);
+  
+  // 修改getInitialPosition和getInitialSize来使用新的状态
   const getInitialPosition = (panelId: string) => {
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    const panel = panelSettings.get(panelId);
+    if (panel) {
+      return panel.position;
+    }
+    
+    // fallback到之前的默认值
+    const width = window.innerWidth;
+    const height = window.innerHeight;
     
     switch (panelId) {
       case 'sceneTree':
@@ -388,8 +531,13 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
     }
   };
   
-  // 计算初始大小
   const getInitialSize = (panelId: string) => {
+    const panel = panelSettings.get(panelId);
+    if (panel) {
+      return panel.size;
+    }
+    
+    // fallback到之前的默认值
     switch (panelId) {
       case 'sceneTree':
       case 'properties':
@@ -441,30 +589,6 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
       setIsModified(false);
       setEditorStatus('已保存');
       setTimeout(() => setEditorStatus('就绪'), 3000);
-    }
-  };
-  
-  // 处理菜单操作
-  const handleMenuAction = (action: string, data?: any) => {
-    // 在实际应用中，这里会处理菜单操作
-    addLog({
-      id: Date.now().toString(),
-      timestamp: new Date(),
-      message: `菜单操作: ${action} ${data ? JSON.stringify(data) : ''}`,
-      severity: 'info',
-      source: '菜单'
-    });
-    
-    // 处理特定的菜单动作
-    if (action === 'save') {
-      setIsModified(false);
-      setEditorStatus('已保存');
-      setTimeout(() => setEditorStatus('就绪'), 3000);
-    } else if (action === 'new_project') {
-      setProjectName('未命名项目');
-      setIsModified(false);
-    } else if (action === 'toggle_panel' && data?.panel) {
-      togglePanelVisibility(data.panel);
     }
   };
   
@@ -528,6 +652,297 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
     }
   };
 
+  // 切换面板模式
+  const togglePanelMode = (panelId: string, mode: PanelMode) => {
+    setPanels(prevPanels => prevPanels.map(panel => 
+      panel.id === panelId 
+        ? { ...panel, mode: mode, visible: mode !== PanelMode.HIDDEN } 
+        : panel
+    ));
+  };
+
+  // 渲染面板内容的辅助函数
+  const renderPanelContent = (panel) => {
+    switch (panel.id) {
+      case 'sceneTree':
+        return (
+          <SceneTreeView 
+            nodes={sceneNodes} 
+            onNodeSelect={handleNodeSelect}
+          />
+        );
+      case 'properties':
+        return (
+          <PropertyPanel 
+            categories={nodeProperties}
+            onPropertyChange={handlePropertyChange}
+          />
+        );
+      case 'assets':
+        return (
+          <AssetBrowser 
+            assets={projectAssets}
+            onAssetSelect={handleAssetSelect}
+          />
+        );
+      case 'console':
+        return (
+          <Console 
+            logs={logs}
+            onClear={clearLogs}
+            onExecuteCommand={executeCommand}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  // 添加拖拽状态
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  
+  // 添加编辑模式状态
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  // 移除面板组中的标签
+  const removeTab = (groupId: string, tabId: string) => {
+    setPanelGroups(prevGroups => {
+      // 找到对应的组和标签
+      const newGroups = [...prevGroups];
+      const groupIndex = newGroups.findIndex(g => g.id === groupId);
+      
+      if (groupIndex === -1) return prevGroups;
+      
+      const group = newGroups[groupIndex];
+      const tabIndex = group.tabs.findIndex(t => t.id === tabId);
+      
+      if (tabIndex === -1) return prevGroups;
+      
+      // 如果是被锁定的标签（如控制台），不允许移除
+      if (group.tabs[tabIndex].locked) {
+        return prevGroups;
+      }
+      
+      // 移除标签
+      group.tabs.splice(tabIndex, 1);
+      
+      // 如果组内还有其他标签，设置一个新的活动标签
+      if (group.tabs.length > 0 && group.activeTab === tabId) {
+        group.activeTab = group.tabs[0].id;
+      }
+      
+      // 如果组内没有标签了，移除该组
+      if (group.tabs.length === 0) {
+        newGroups.splice(groupIndex, 1);
+      }
+      
+      return newGroups;
+    });
+  };
+
+  // 调整面板组大小
+  const resizeGroup = (groupId: string, newSize: number) => {
+    setPanelGroups(prevGroups => {
+      return prevGroups.map(group => {
+        if (group.id === groupId) {
+          return { ...group, size: Math.max(100, newSize) }; // 限制最小尺寸
+        }
+        return group;
+      });
+    });
+  };
+
+  // 修改处理拖拽开始函数
+  const handleTabDragStart = (e: React.DragEvent, tabId: string, groupId: string) => {
+    // 检查是否是锁定的标签
+    const group = panelGroups.find(g => g.id === groupId);
+    const tab = group?.tabs.find(t => t.id === tabId);
+    
+    if (tab?.locked) {
+      // 如果是锁定的标签（如控制台），阻止拖拽
+      e.preventDefault();
+      return;
+    }
+    
+    e.dataTransfer.setData('text/plain', tabId);
+    e.dataTransfer.setData('application/groupId', groupId);
+    setDragState({ panelId: tabId, sourceGroupId: groupId, isDragging: true });
+  };
+
+  // 修改处理拖拽放下函数
+  const handleTabDrop = (e: React.DragEvent, targetGroupId: string) => {
+    e.preventDefault();
+    if (!dragState) return;
+
+    const { panelId, sourceGroupId } = dragState;
+    if (sourceGroupId !== targetGroupId) {
+      // 找到源标签
+      const sourceGroup = panelGroups.find(g => g.id === sourceGroupId);
+      const sourceTab = sourceGroup?.tabs.find(t => t.id === panelId);
+      
+      if (sourceTab) {
+        // 移除源组中的标签
+        removeTab(sourceGroupId, panelId);
+        
+        // 添加到目标组
+        setPanelGroups(prevGroups => {
+          return prevGroups.map(group => {
+            if (group.id === targetGroupId) {
+              return {
+                ...group,
+                tabs: [...group.tabs, sourceTab],
+                activeTab: sourceTab.id
+              };
+            }
+            return group;
+          });
+        });
+      }
+    }
+    setDragState(null);
+  };
+
+  // 修改面板组组件
+  const PanelGroupComponent: React.FC<{
+    group: any;
+    region: 'left' | 'right' | 'bottom';
+  }> = ({ group, region }) => {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: region === 'bottom' ? '100%' : group.size,
+          height: region === 'bottom' ? group.size : '100%',
+          position: 'relative'
+        }}
+      >
+        {/* 标签栏 */}
+        <Box sx={{ 
+          display: 'flex', 
+          borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+          bgcolor: 'background.paper'
+        }}>
+          {group.tabs.map(tab => (
+            <Box
+              key={tab.id}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '8px 16px',
+                cursor: tab.locked ? 'default' : 'move',
+                bgcolor: group.activeTab === tab.id ? 'action.selected' : 'transparent',
+                '&:hover': { 
+                  bgcolor: 'action.hover',
+                  '& .tab-actions': { visibility: 'visible' }
+                }
+              }}
+              draggable={!tab.locked}
+              onDragStart={(e) => handleTabDragStart(e, tab.id, group.id)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.currentTarget.style.borderLeft = '2px solid #1976d2';
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.style.borderLeft = 'none';
+              }}
+              onDrop={(e) => handleTabDrop(e, group.id)}
+              onClick={() => setActiveTab(group.id, tab.id)}
+            >
+              {tab.title}
+              <Box className="tab-actions" sx={{ 
+                ml: 1,
+                visibility: 'hidden',
+                display: 'flex',
+                gap: 0.5
+              }}>
+                {!tab.locked && (
+                  <IconButton size="small" onClick={(e) => {
+                    e.stopPropagation();
+                    removeTab(group.id, tab.id);
+                  }}>
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
+            </Box>
+          ))}
+        </Box>
+
+        {/* 面板内容 */}
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
+          {renderPanelContent(group.tabs.find(t => t.id === group.activeTab))}
+        </Box>
+
+        {/* 大小调整手柄 */}
+        {region !== 'bottom' && (
+          <Box
+            sx={{
+              position: 'absolute',
+              [region === 'left' ? 'right' : 'left']: -3,
+              top: 0,
+              bottom: 0,
+              width: 6,
+              cursor: 'col-resize',
+              '&:hover': { bgcolor: 'primary.main' }
+            }}
+            onMouseDown={(e) => {
+              const startX = e.clientX;
+              const startSize = group.size;
+
+              const handleMouseMove = (moveEvent: MouseEvent) => {
+                const delta = moveEvent.clientX - startX;
+                const newSize = region === 'left' ? 
+                  startSize + delta : 
+                  startSize - delta;
+                resizeGroup(group.id, newSize);
+              };
+
+              const handleMouseUp = () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+              };
+
+              document.addEventListener('mousemove', handleMouseMove);
+              document.addEventListener('mouseup', handleMouseUp);
+            }}
+          />
+        )}
+        
+        {region === 'bottom' && (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: -3,
+              height: 6,
+              cursor: 'row-resize',
+              '&:hover': { bgcolor: 'primary.main' }
+            }}
+            onMouseDown={(e) => {
+              const startY = e.clientY;
+              const startSize = group.size;
+
+              const handleMouseMove = (moveEvent: MouseEvent) => {
+                const delta = startY - moveEvent.clientY;
+                resizeGroup(group.id, startSize + delta);
+              };
+
+              const handleMouseUp = () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+              };
+
+              document.addEventListener('mousemove', handleMouseMove);
+              document.addEventListener('mouseup', handleMouseUp);
+            }}
+          />
+        )}
+      </Box>
+    );
+  };
+
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
@@ -541,6 +956,7 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
           bgcolor: 'background.default',
           color: 'text.primary',
         }}
+        ref={containerRef}
       >
         {/* 菜单栏 */}
         <MenuBar onAction={handleMenuAction} />
@@ -549,85 +965,97 @@ const EditorComponent: React.FC<EditorProps> = ({ container }) => {
         <ToolBar 
           onAction={handleToolbarAction}
           onToolSelect={handleToolSelect}
+          onTogglePanel={togglePanelVisibility}
+          onChangePanelMode={(panelId, mode) => togglePanelMode(panelId, mode)}
         />
         
         {/* 主编辑区域 */}
-        <Box
-          sx={{
-            position: 'relative',
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          flexGrow: 1, 
+          overflow: 'hidden'
+        }}>
+          {/* 主内容区域：左中右布局 */}
+          <Box sx={{ 
+            display: 'flex',
             flexGrow: 1,
-            overflow: 'hidden',
-          }}
-        >
-          {/* 场景视图（3D视图区域）*/}
-          <Box
-            id="scene-view-container"
-            ref={sceneViewRef}
-            sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              bgcolor: '#1a1a1a',
-            }}
-          >
-            {/* 3D场景视图将在这里渲染 */}
-          </Box>
-          
-          {/* 可停靠面板 */}
-          {panels.map(panel => 
-            panel.visible && (
-              <DockablePanel
-                key={panel.id}
-                id={panel.id}
-                title={panel.title}
-                initialPosition={getInitialPosition(panel.id)}
-                initialSize={getInitialSize(panel.id)}
-                onClose={() => closePanel(panel.id)}
+            overflow: 'hidden'
+          }}>
+            {/* 左侧区域 */}
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              {panelGroups
+                .filter(group => group.region === 'left')
+                .map(group => (
+                  <PanelGroupComponent 
+                    key={group.id} 
+                    group={group} 
+                    region="left"
+                  />
+                ))}
+            </Box>
+
+            {/* 中间场景视图 */}
+            <Box sx={{ 
+              flexGrow: 1,
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <Box 
+                id="scene-view-container" 
+                ref={sceneViewRef} 
+                sx={{ 
+                  width: '100%',
+                  height: '100%'
+                }}
               >
-                {panel.id === 'sceneTree' && (
-                  <SceneTreeView 
-                    nodes={sceneNodes} 
-                    onNodeSelect={handleNodeSelect}
+                <canvas id="scene-view-canvas" style={{ width: '100%', height: '100%' }} />
+              </Box>
+            </Box>
+
+            {/* 右侧区域 */}
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              {panelGroups
+                .filter(group => group.region === 'right')
+                .map(group => (
+                  <PanelGroupComponent 
+                    key={group.id} 
+                    group={group} 
+                    region="right"
                   />
-                )}
-                {panel.id === 'properties' && (
-                  <PropertyPanel 
-                    categories={nodeProperties}
-                    onPropertyChange={handlePropertyChange}
-                  />
-                )}
-                {panel.id === 'assets' && (
-                  <AssetBrowser 
-                    assets={projectAssets}
-                    onAssetSelect={handleAssetSelect}
-                  />
-                )}
-                {panel.id === 'console' && (
-                  <Console 
-                    logs={logs}
-                    onClear={clearLogs}
-                    onExecuteCommand={executeCommand}
-                  />
-                )}
-              </DockablePanel>
-            )
-          )}
+                ))}
+            </Box>
+          </Box>
+
+          {/* 底部区域 */}
+          <Box sx={{ display: 'flex' }}>
+            {panelGroups
+              .filter(group => group.region === 'bottom')
+              .map(group => (
+                <PanelGroupComponent 
+                  key={group.id} 
+                  group={group} 
+                  region="bottom"
+                />
+              ))}
+          </Box>
+
+          {/* 状态栏 */}
+          <StatusBar 
+            fps={fps}
+            objectCount={objectCount}
+            triangleCount={triangleCount}
+            selectedObject={selectedNodeName}
+            projectName={projectName}
+            isModified={isModified}
+            status={editorStatus}
+            onAction={handleStatusBarAction}
+          />
         </Box>
-        
-        {/* 状态栏 */}
-        <StatusBar 
-          fps={fps}
-          objectCount={objectCount}
-          triangleCount={triangleCount}
-          selectedObject={selectedNodeName}
-          projectName={projectName}
-          isModified={isModified}
-          status={editorStatus}
-          onAction={handleStatusBarAction}
-        />
       </Box>
     </ThemeProvider>
   );
-}; 
+};
+
+// 导出组件
+export default EditorComponent; 
