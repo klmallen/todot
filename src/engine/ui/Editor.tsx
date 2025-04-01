@@ -9,7 +9,7 @@ import { ToolBar } from './components/ToolBar';
 import { StatusBar } from './components/StatusBar';
 import { SceneTreeView, exampleSceneNodes } from './components/SceneTreeView';
 import { PropertyPanel, exampleProperties } from './components/PropertyPanel';
-import { AssetBrowser, exampleAssets } from './components/AssetBrowser';
+import AssetBrowser from './components/AssetBrowser';
 import { Console, exampleLogs, LogEntry } from './components/Console';
 
 // 导入引擎相关类
@@ -24,6 +24,12 @@ import { EditorEngineIntegration } from './EditorEngineIntegration';
 // 导入缺少的图标组件
 import { Close as CloseIcon } from '@mui/icons-material';
 import { IconButton } from '@mui/material';
+
+// 导入新的组件
+import TabGroupManager, { TabGroupData } from './components/TabGroupManager';
+import ProjectManager, { ProjectInfo } from './components/ProjectManager';
+import ProjectService from './services/ProjectService';
+import TabEditor from './components/editors/TabEditor';
 
 // 主题配置
 const darkTheme = createTheme({
@@ -67,6 +73,7 @@ interface Panel {
   icon?: string;
   content: React.ReactNode;
   mode: PanelMode;
+  locked?: boolean;
 }
 
 // 添加拖拽状态接口
@@ -75,6 +82,23 @@ interface DragState {
   sourceGroupId: string;
   isDragging: boolean;
 }
+
+// 1. 确保有默认的属性面板数据
+// 在组件顶部添加默认数据
+const defaultNodeProperties = [
+  {
+    name: '基本属性',
+    expanded: true,
+    properties: [
+      {
+        id: 'name',
+        name: '名称',
+        type: 'string',
+        value: '未选择对象'
+      }
+    ]
+  }
+];
 
 // EditorComponent 组件
 const EditorComponent: React.FC = () => {
@@ -87,7 +111,7 @@ const EditorComponent: React.FC = () => {
         { 
           id: 'sceneTree', 
           title: '场景树', 
-          mode: PanelMode.DOCKED,
+          mode: PanelMode.GROUPABLE,
         }
       ],
       activeTab: 'sceneTree',
@@ -100,7 +124,7 @@ const EditorComponent: React.FC = () => {
         { 
           id: 'properties', 
           title: '属性', 
-          mode: PanelMode.DOCKED,
+          mode: PanelMode.DRAGGABLE,
         }
       ],
       activeTab: 'properties',
@@ -113,13 +137,13 @@ const EditorComponent: React.FC = () => {
         { 
           id: 'assets', 
           title: '资源', 
-          mode: PanelMode.DOCKED,
+          mode: PanelMode.GROUPABLE,
         },
         { 
           id: 'console', 
           title: '控制台', 
-          mode: PanelMode.DOCKED,
-          locked: true  // 标记控制台为锁定状态，不能拖动
+          mode: PanelMode.GROUPABLE,
+          locked: true  // 控制台设为锁定
         }
       ],
       activeTab: 'assets',
@@ -201,8 +225,8 @@ const EditorComponent: React.FC = () => {
   const [engineInstance, setEngineInstance] = useState<Engine | null>(null);
   const [editorIntegration, setEditorIntegration] = useState<EditorEngineIntegration | null>(null);
   const [sceneNodes, setSceneNodes] = useState<SceneNode[]>(exampleSceneNodes);
-  const [nodeProperties, setNodeProperties] = useState<PropertyCategory[]>(exampleProperties);
-  const [projectAssets, setProjectAssets] = useState<Asset[]>(exampleAssets);
+  const [nodeProperties, setNodeProperties] = useState<PropertyCategory[]>(exampleProperties || defaultNodeProperties);
+  const [projectAssets, setProjectAssets] = useState<Asset[]>();
   const containerRef = useRef<HTMLDivElement>(null);
   
   // 添加面板管理相关的状态和方法（从Editor类中移植）
@@ -434,7 +458,178 @@ const EditorComponent: React.FC = () => {
     console.log(`设置面板 ${panelId} 大小为`, size);
   };
   
-  // 修改处理菜单操作的函数，确保正确调用togglePanel
+  // 在EditorComponent中添加项目管理状态
+  const [projectManagerOpen, setProjectManagerOpen] = useState(false);
+  const [currentProject, setCurrentProject] = useState<ProjectInfo | null>(null);
+  const projectService = ProjectService.getInstance();
+
+  // 初始化时检查是否有上次打开的项目
+  useEffect(() => {
+    const lastProject = localStorage.getItem('lastOpenedProject');
+    if (lastProject) {
+      try {
+        const project = JSON.parse(lastProject);
+        setCurrentProject(project);
+        // 不自动打开，等用户手动操作
+      } catch (error) {
+        console.error('Failed to parse last project', error);
+      }
+    } else {
+      // 如果没有上次打开的项目，显示项目管理器
+      setProjectManagerOpen(true);
+    }
+  }, []);
+
+  // 创建新项目
+  const handleCreateProject = async (name: string, path: string) => {
+    if (!engineInstance) {
+      alert('引擎未初始化');
+      return;
+    }
+    
+    try {
+      const project = await projectService.createProject(name, path, engineInstance);
+      setCurrentProject(project);
+      localStorage.setItem('lastOpenedProject', JSON.stringify(project));
+      setProjectName(name);
+      setIsModified(false);
+      setProjectManagerOpen(false);
+      
+      // 更新场景树和其他状态
+      if (editorIntegration) {
+        updateEditorData(editorIntegration);
+      }
+      
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `创建项目: ${name}`,
+        severity: 'info',
+        source: '项目'
+      });
+    } catch (error) {
+      console.error('创建项目失败:', error);
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `创建项目失败: ${(error as Error).message}`,
+        severity: 'error',
+        source: '项目'
+      });
+    }
+  };
+
+  // 打开项目
+  const handleOpenProject = async (project: ProjectInfo) => {
+    if (!engineInstance) {
+      alert('引擎未初始化');
+      return;
+    }
+    
+    try {
+      await projectService.openProject(project, engineInstance);
+      setCurrentProject(project);
+      localStorage.setItem('lastOpenedProject', JSON.stringify(project));
+      setProjectName(project.name);
+      setIsModified(false);
+      setProjectManagerOpen(false);
+      
+      // 更新场景树和其他状态
+      if (editorIntegration) {
+        updateEditorData(editorIntegration);
+      }
+      
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `打开项目: ${project.name}`,
+        severity: 'info',
+        source: '项目'
+      });
+    } catch (error) {
+      console.error('打开项目失败:', error);
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `打开项目失败: ${(error as Error).message}`,
+        severity: 'error',
+        source: '项目'
+      });
+    }
+  };
+
+  // 导入项目
+  const handleImportProject = async (path: string) => {
+    if (!engineInstance) {
+      alert('引擎未初始化');
+      return;
+    }
+    
+    try {
+      const project = await projectService.importProject(path, engineInstance);
+      setCurrentProject(project);
+      localStorage.setItem('lastOpenedProject', JSON.stringify(project));
+      setProjectName(project.name);
+      setIsModified(false);
+      setProjectManagerOpen(false);
+      
+      // 更新场景树和其他状态
+      if (editorIntegration) {
+        updateEditorData(editorIntegration);
+      }
+      
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `导入项目: ${project.name}`,
+        severity: 'info',
+        source: '项目'
+      });
+    } catch (error) {
+      console.error('导入项目失败:', error);
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `导入项目失败: ${(error as Error).message}`,
+        severity: 'error',
+        source: '项目'
+      });
+    }
+  };
+
+  // 保存项目
+  const saveProject = async () => {
+    if (!engineInstance || !currentProject) {
+      alert('没有打开的项目或引擎未初始化');
+      return;
+    }
+    
+    try {
+      await projectService.saveProject(engineInstance);
+      setIsModified(false);
+      setEditorStatus('已保存');
+      setTimeout(() => setEditorStatus('就绪'), 3000);
+      
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `保存项目: ${currentProject.name}`,
+        severity: 'info',
+        source: '项目'
+      });
+    } catch (error) {
+      console.error('保存项目失败:', error);
+      addLog({
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        message: `保存项目失败: ${(error as Error).message}`,
+        severity: 'error',
+        source: '项目'
+      });
+    }
+  };
+
+  // 修改handleMenuAction函数处理项目操作
   const handleMenuAction = (action: string, data?: any) => {
     // 添加日志
     addLog({
@@ -446,16 +641,53 @@ const EditorComponent: React.FC = () => {
     });
     
     // 处理特定的菜单动作
-    if (action === 'save') {
-      setIsModified(false);
-      setEditorStatus('已保存');
-      setTimeout(() => setEditorStatus('就绪'), 3000);
-    } else if (action === 'new_project') {
-      setProjectName('未命名项目');
-      setIsModified(false);
-    } else if (action === 'toggle_panel' && data?.panel) {
-      // 确保正确调用我们定义的togglePanel函数
-      togglePanel(data.panel);
+    switch (action) {
+      case 'new_project':
+        setProjectManagerOpen(true);
+        break;
+      
+      case 'open_project':
+        setProjectManagerOpen(true);
+        break;
+      
+      case 'save':
+        saveProject();
+        break;
+      
+      case 'save_as':
+        // 未实现另存为功能
+        alert('另存为功能尚未实现');
+        break;
+      
+      case 'close_project':
+        if (isModified) {
+          if (confirm('项目有未保存的更改，是否保存？')) {
+            saveProject().then(() => {
+              setCurrentProject(null);
+              localStorage.removeItem('lastOpenedProject');
+              setProjectName('未命名项目');
+            });
+          } else {
+            setCurrentProject(null);
+            localStorage.removeItem('lastOpenedProject');
+            setProjectName('未命名项目');
+          }
+        } else {
+          setCurrentProject(null);
+          localStorage.removeItem('lastOpenedProject');
+          setProjectName('未命名项目');
+        }
+        break;
+      
+      case 'toggle_panel':
+        if (data?.panel) {
+          togglePanel(data.panel);
+        }
+        break;
+        
+      default:
+        console.log('未处理的菜单操作:', action);
+        break;
     }
   };
   
@@ -661,9 +893,66 @@ const EditorComponent: React.FC = () => {
     ));
   };
 
-  // 渲染面板内容的辅助函数
-  const renderPanelContent = (panel) => {
-    switch (panel.id) {
+  // 初始化标签组
+  const initialTabGroups: TabGroupData[] = [
+    {
+      id: 'leftGroup',
+      region: 'left',
+      tabs: [
+        { 
+          id: 'sceneTree', 
+          title: '场景树',
+          content: null // 这里的null将被renderTabContent替换
+        }
+      ],
+      activeTabId: 'sceneTree',
+      size: 250
+    },
+    {
+      id: 'rightGroup',
+      region: 'right',
+      tabs: [
+        { 
+          id: 'properties', 
+          title: '属性',
+          content: null
+        }
+      ],
+      activeTabId: 'properties',
+      size: 250
+    },
+    {
+      id: 'bottomGroup',
+      region: 'bottom',
+      tabs: [
+        { 
+          id: 'assets', 
+          title: '资源',
+          content: null
+        },
+        { 
+          id: 'console', 
+          title: '控制台',
+          content: null,
+          locked: true // 控制台设为锁定
+        }
+      ],
+      activeTabId: 'assets',
+      size: 200
+    }
+  ];
+  
+  // 使用useEffect确保在组件挂载后更新TabGroupManager的状态
+  useEffect(() => {
+    // 此处可以添加调试信息，帮助排查问题
+    console.log('属性面板内容:', nodeProperties);
+  }, [nodeProperties]); // 监听属性数据变化
+  
+  // 3. 修改renderTabContent函数，确保属性面板始终有内容
+  const renderTabContent = (tabId: string) => {
+    console.log(`渲染标签内容: ${tabId}`);
+    
+    switch (tabId) {
       case 'sceneTree':
         return (
           <SceneTreeView 
@@ -672,9 +961,16 @@ const EditorComponent: React.FC = () => {
           />
         );
       case 'properties':
+        // 确保nodeProperties有值
+        const properties = nodeProperties && nodeProperties.length > 0 
+          ? nodeProperties 
+          : exampleProperties; // 使用示例属性作为后备
+        
+        console.log('使用属性数据:', properties);
+        
         return (
           <PropertyPanel 
-            categories={nodeProperties}
+            categories={properties}
             onPropertyChange={handlePropertyChange}
           />
         );
@@ -694,254 +990,78 @@ const EditorComponent: React.FC = () => {
           />
         );
       default:
-        return null;
+        return <Box sx={{ p: 2 }}>未知面板: {tabId}</Box>;
     }
   };
 
-  // 添加拖拽状态
-  const [dragState, setDragState] = useState<DragState | null>(null);
-  
-  // 添加编辑模式状态
-  const [isEditMode, setIsEditMode] = useState(false);
+  // 4. 添加效果钩子来调试和确保内容更新
+  useEffect(() => {
+    console.log('当前所有标签组:', initialTabGroups);
+    console.log('属性面板数据:', nodeProperties);
+    
+    // 如果属性面板数据为空，设置默认值
+    if (!nodeProperties || nodeProperties.length === 0) {
+      setNodeProperties(defaultNodeProperties);
+    }
+  }, []);
 
-  // 移除面板组中的标签
-  const removeTab = (groupId: string, tabId: string) => {
-    setPanelGroups(prevGroups => {
-      // 找到对应的组和标签
-      const newGroups = [...prevGroups];
-      const groupIndex = newGroups.findIndex(g => g.id === groupId);
-      
-      if (groupIndex === -1) return prevGroups;
-      
-      const group = newGroups[groupIndex];
-      const tabIndex = group.tabs.findIndex(t => t.id === tabId);
-      
-      if (tabIndex === -1) return prevGroups;
-      
-      // 如果是被锁定的标签（如控制台），不允许移除
-      if (group.tabs[tabIndex].locked) {
-        return prevGroups;
+  // 在EditorComponent中添加状态
+  const [editorViewActive, setEditorViewActive] = useState(false);
+
+  // 添加处理资源双击的方法
+  const handleAssetDoubleClick = (asset: AssetItem) => {
+    // 只处理可编辑的资源类型
+    if (
+      asset.type === AssetType.SCRIPT ||
+      asset.type === AssetType.MATERIAL ||
+      asset.type === AssetType.SCENE
+    ) {
+      setEditorViewActive(true);
+      // 如果TabEditor组件引用可用，调用其openFile方法
+      if (tabEditorRef.current) {
+        tabEditorRef.current.openFile(asset);
       }
-      
-      // 移除标签
-      group.tabs.splice(tabIndex, 1);
-      
-      // 如果组内还有其他标签，设置一个新的活动标签
-      if (group.tabs.length > 0 && group.activeTab === tabId) {
-        group.activeTab = group.tabs[0].id;
-      }
-      
-      // 如果组内没有标签了，移除该组
-      if (group.tabs.length === 0) {
-        newGroups.splice(groupIndex, 1);
-      }
-      
-      return newGroups;
-    });
+    }
   };
 
-  // 调整面板组大小
-  const resizeGroup = (groupId: string, newSize: number) => {
-    setPanelGroups(prevGroups => {
-      return prevGroups.map(group => {
-        if (group.id === groupId) {
-          return { ...group, size: Math.max(100, newSize) }; // 限制最小尺寸
-        }
-        return group;
+  // 添加保存文件的方法
+  const handleSaveFile = async (asset: AssetItem, content: string) => {
+    const currentProject = projectService.getCurrentProject();
+    if (!currentProject) {
+      throw new Error('没有打开的项目');
+    }
+    
+    try {
+      // 获取目录句柄
+      const parts = asset.path.split('/');
+      const fileName = parts.pop() || '';
+      const dirPath = parts.join('/');
+      const fullPath = `${currentProject.path}/${dirPath}`;
+      
+      const dirHandle = await window.showDirectoryPicker({
+        id: 'projectDirectory',
+        startIn: fullPath
       });
-    });
-  };
-
-  // 修改处理拖拽开始函数
-  const handleTabDragStart = (e: React.DragEvent, tabId: string, groupId: string) => {
-    // 检查是否是锁定的标签
-    const group = panelGroups.find(g => g.id === groupId);
-    const tab = group?.tabs.find(t => t.id === tabId);
-    
-    if (tab?.locked) {
-      // 如果是锁定的标签（如控制台），阻止拖拽
-      e.preventDefault();
-      return;
-    }
-    
-    e.dataTransfer.setData('text/plain', tabId);
-    e.dataTransfer.setData('application/groupId', groupId);
-    setDragState({ panelId: tabId, sourceGroupId: groupId, isDragging: true });
-  };
-
-  // 修改处理拖拽放下函数
-  const handleTabDrop = (e: React.DragEvent, targetGroupId: string) => {
-    e.preventDefault();
-    if (!dragState) return;
-
-    const { panelId, sourceGroupId } = dragState;
-    if (sourceGroupId !== targetGroupId) {
-      // 找到源标签
-      const sourceGroup = panelGroups.find(g => g.id === sourceGroupId);
-      const sourceTab = sourceGroup?.tabs.find(t => t.id === panelId);
       
-      if (sourceTab) {
-        // 移除源组中的标签
-        removeTab(sourceGroupId, panelId);
-        
-        // 添加到目标组
-        setPanelGroups(prevGroups => {
-          return prevGroups.map(group => {
-            if (group.id === targetGroupId) {
-              return {
-                ...group,
-                tabs: [...group.tabs, sourceTab],
-                activeTab: sourceTab.id
-              };
-            }
-            return group;
-          });
-        });
-      }
+      // 获取文件句柄
+      const fileHandle = await dirHandle.getFileHandle(fileName);
+      
+      // 写入内容
+      const writable = await fileHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      
+      // 标记项目为已修改
+      setIsModified(true);
+      
+    } catch (error) {
+      console.error('保存文件失败:', error);
+      throw error;
     }
-    setDragState(null);
   };
 
-  // 修改面板组组件
-  const PanelGroupComponent: React.FC<{
-    group: any;
-    region: 'left' | 'right' | 'bottom';
-  }> = ({ group, region }) => {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: region === 'bottom' ? '100%' : group.size,
-          height: region === 'bottom' ? group.size : '100%',
-          position: 'relative'
-        }}
-      >
-        {/* 标签栏 */}
-        <Box sx={{ 
-          display: 'flex', 
-          borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
-          bgcolor: 'background.paper'
-        }}>
-          {group.tabs.map(tab => (
-            <Box
-              key={tab.id}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '8px 16px',
-                cursor: tab.locked ? 'default' : 'move',
-                bgcolor: group.activeTab === tab.id ? 'action.selected' : 'transparent',
-                '&:hover': { 
-                  bgcolor: 'action.hover',
-                  '& .tab-actions': { visibility: 'visible' }
-                }
-              }}
-              draggable={!tab.locked}
-              onDragStart={(e) => handleTabDragStart(e, tab.id, group.id)}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.currentTarget.style.borderLeft = '2px solid #1976d2';
-              }}
-              onDragLeave={(e) => {
-                e.currentTarget.style.borderLeft = 'none';
-              }}
-              onDrop={(e) => handleTabDrop(e, group.id)}
-              onClick={() => setActiveTab(group.id, tab.id)}
-            >
-              {tab.title}
-              <Box className="tab-actions" sx={{ 
-                ml: 1,
-                visibility: 'hidden',
-                display: 'flex',
-                gap: 0.5
-              }}>
-                {!tab.locked && (
-                  <IconButton size="small" onClick={(e) => {
-                    e.stopPropagation();
-                    removeTab(group.id, tab.id);
-                  }}>
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                )}
-              </Box>
-            </Box>
-          ))}
-        </Box>
-
-        {/* 面板内容 */}
-        <Box sx={{ flex: 1, overflow: 'auto' }}>
-          {renderPanelContent(group.tabs.find(t => t.id === group.activeTab))}
-        </Box>
-
-        {/* 大小调整手柄 */}
-        {region !== 'bottom' && (
-          <Box
-            sx={{
-              position: 'absolute',
-              [region === 'left' ? 'right' : 'left']: -3,
-              top: 0,
-              bottom: 0,
-              width: 6,
-              cursor: 'col-resize',
-              '&:hover': { bgcolor: 'primary.main' }
-            }}
-            onMouseDown={(e) => {
-              const startX = e.clientX;
-              const startSize = group.size;
-
-              const handleMouseMove = (moveEvent: MouseEvent) => {
-                const delta = moveEvent.clientX - startX;
-                const newSize = region === 'left' ? 
-                  startSize + delta : 
-                  startSize - delta;
-                resizeGroup(group.id, newSize);
-              };
-
-              const handleMouseUp = () => {
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-              };
-
-              document.addEventListener('mousemove', handleMouseMove);
-              document.addEventListener('mouseup', handleMouseUp);
-            }}
-          />
-        )}
-        
-        {region === 'bottom' && (
-          <Box
-            sx={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: -3,
-              height: 6,
-              cursor: 'row-resize',
-              '&:hover': { bgcolor: 'primary.main' }
-            }}
-            onMouseDown={(e) => {
-              const startY = e.clientY;
-              const startSize = group.size;
-
-              const handleMouseMove = (moveEvent: MouseEvent) => {
-                const delta = startY - moveEvent.clientY;
-                resizeGroup(group.id, startSize + delta);
-              };
-
-              const handleMouseUp = () => {
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-              };
-
-              document.addEventListener('mousemove', handleMouseMove);
-              document.addEventListener('mouseup', handleMouseUp);
-            }}
-          />
-        )}
-      </Box>
-    );
-  };
+  // 创建对TabEditor的引用
+  const tabEditorRef = useRef<any>(null);
 
   return (
     <ThemeProvider theme={darkTheme}>
@@ -965,81 +1085,49 @@ const EditorComponent: React.FC = () => {
         <ToolBar 
           onAction={handleToolbarAction}
           onToolSelect={handleToolSelect}
-          onTogglePanel={togglePanelVisibility}
-          onChangePanelMode={(panelId, mode) => togglePanelMode(panelId, mode)}
         />
         
-        {/* 主编辑区域 */}
+        {/* 主编辑区域 - 使用新的TabGroupManager */}
         <Box sx={{ 
+          flexGrow: 1, 
           display: 'flex', 
           flexDirection: 'column',
-          flexGrow: 1, 
           overflow: 'hidden'
         }}>
-          {/* 主内容区域：左中右布局 */}
-          <Box sx={{ 
-            display: 'flex',
-            flexGrow: 1,
-            overflow: 'hidden'
-          }}>
-            {/* 左侧区域 */}
-            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-              {panelGroups
-                .filter(group => group.region === 'left')
-                .map(group => (
-                  <PanelGroupComponent 
-                    key={group.id} 
-                    group={group} 
-                    region="left"
-                  />
-                ))}
-            </Box>
-
-            {/* 中间场景视图 */}
-            <Box sx={{ 
-              flexGrow: 1,
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <Box 
-                id="scene-view-container" 
-                ref={sceneViewRef} 
-                sx={{ 
-                  width: '100%',
-                  height: '100%'
-                }}
-              >
-                <canvas id="scene-view-canvas" style={{ width: '100%', height: '100%' }} />
-              </Box>
-            </Box>
-
-            {/* 右侧区域 */}
-            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-              {panelGroups
-                .filter(group => group.region === 'right')
-                .map(group => (
-                  <PanelGroupComponent 
-                    key={group.id} 
-                    group={group} 
-                    region="right"
-                  />
-                ))}
-            </Box>
-          </Box>
-
-          {/* 底部区域 */}
-          <Box sx={{ display: 'flex' }}>
-            {panelGroups
-              .filter(group => group.region === 'bottom')
-              .map(group => (
-                <PanelGroupComponent 
-                  key={group.id} 
-                  group={group} 
-                  region="bottom"
+          <TabGroupManager
+            initialGroups={initialTabGroups}
+            renderTabContent={renderTabContent}
+            centerContent={
+              editorViewActive ? (
+                <TabEditor
+                  ref={tabEditorRef}
+                  onSave={handleSaveFile}
                 />
-              ))}
-          </Box>
-
+              ) : (
+                <Box
+                  id="scene-view-container"
+                  sx={{
+                    position: 'relative',
+                    flexGrow: 1,
+                    backgroundColor: '#1a1a1a',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <canvas
+                    id="scene-view-canvas"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%'
+                    }}
+                  />
+                </Box>
+              )
+            }
+          />
+          
           {/* 状态栏 */}
           <StatusBar 
             fps={fps}
@@ -1052,6 +1140,15 @@ const EditorComponent: React.FC = () => {
             onAction={handleStatusBarAction}
           />
         </Box>
+        
+        {/* 项目管理器对话框 */}
+        <ProjectManager
+          open={projectManagerOpen}
+          onClose={() => setProjectManagerOpen(false)}
+          onCreateProject={handleCreateProject}
+          onOpenProject={handleOpenProject}
+          onImportProject={handleImportProject}
+        />
       </Box>
     </ThemeProvider>
   );

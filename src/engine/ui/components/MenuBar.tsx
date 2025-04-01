@@ -87,6 +87,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({ onAction }) => {
         },
         { divider: true },
         {
+          label: '关闭项目',
+          action: () => onAction?.('close_project'),
+        },
+        {
           label: '退出',
           action: () => onAction?.('exit'),
           shortcut: 'Alt+F4',
@@ -249,6 +253,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({ onAction }) => {
                 vertical: 'top',
                 horizontal: 'left',
               }}
+              PaperProps={{
+                sx: {
+                  backgroundColor: '#2d2d2d',
+                  color: '#ffffff',
+                }
+              }}
             >
               {renderMenuItems(item.subMenuItems, `${parentLabel}-${item.label}`)}
             </Menu>
@@ -259,6 +269,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({ onAction }) => {
       return (
         <MenuItem
           key={`${parentLabel}-${item.label}`}
+          sx={{
+            '&:hover': {
+              backgroundColor: '#3d3d3d',
+            }
+          }}
           onClick={() => {
             item.action && item.action();
             handleMenuClose(parentLabel);
@@ -281,7 +296,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({ onAction }) => {
   };
 
   return (
-    <AppBar position="static" color="default" elevation={0} sx={{ zIndex: 1100 }}>
+    <AppBar position="static" elevation={0} sx={{ 
+      zIndex: 1100, 
+      backgroundColor: '#2d2d2d',
+      color: '#ffffff'
+    }}>
       <Toolbar variant="dense" sx={{ minHeight: 40 }}>
         <Typography
           variant="h6"
@@ -295,7 +314,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({ onAction }) => {
           {menus.map((menu) => (
             <React.Fragment key={menu.label}>
               <Button
-                sx={{ color: 'inherit', textTransform: 'none' }}
+                sx={{ 
+                  color: '#ffffff',
+                  textTransform: 'none',
+                  '&:hover': {
+                    backgroundColor: '#3d3d3d',
+                  }
+                }}
                 onClick={(e) => handleMenuOpen(e, menu.label)}
               >
                 {menu.label}
@@ -316,6 +341,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({ onAction }) => {
                 transformOrigin={{
                   vertical: 'top',
                   horizontal: 'left',
+                }}
+                PaperProps={{
+                  sx: {
+                    backgroundColor: '#2d2d2d',
+                    color: '#ffffff',
+                  }
                 }}
               >
                 {renderMenuItems(menu.items, menu.label)}

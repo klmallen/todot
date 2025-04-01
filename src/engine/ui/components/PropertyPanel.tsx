@@ -63,7 +63,16 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({
   onPropertyChange
 }) => {
   return (
-    <Box sx={{ height: '100%', overflow: 'auto', p: 1 }}>
+    <Box
+      sx={{
+        height: '100%',
+        width: '100%',
+        overflow: 'auto',
+        padding: 2,
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       <Typography variant="subtitle2" sx={{ p: 1, mb: 1, borderBottom: '1px solid rgba(255, 255, 255, 0.12)' }}>
         属性
       </Typography>

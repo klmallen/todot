@@ -481,4 +481,86 @@ export default class Engine {
       throw error;
     }
   }
+
+  // 重置引擎状态
+  public reset(): void {
+    // 清除所有场景
+    this.scenes.clear();
+    
+    // 重置其他状态
+    this.activeScene = null;
+    
+    // 重置渲染器状态
+    this.renderer.setSize(this.canvas.width, this.canvas.height);
+    this.renderer.clear();
+  }
+
+  // 创建默认场景
+  public createDefaultScene(name: string = 'Default Scene'): Scene {
+    const scene = new Scene(name);
+    
+    // 添加一些默认对象
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 10, 7.5);
+    scene.add(directionalLight);
+    
+    // 添加地板网格
+    const gridHelper = new THREE.GridHelper(20, 20);
+    scene.add(gridHelper);
+    
+    // 添加一个默认立方体
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshStandardMaterial({ color: 0x3080ff });
+    const cube = new THREE.Mesh(geometry, material);
+    cube.position.set(0, 0.5, 0);
+    scene.add(cube);
+    
+    // 将场景添加到引擎
+    this.addScene(scene);
+    this.activateScene(name);
+    
+    return scene;
+  }
+
+  // 获取所有场景
+  public getAllScenes(): Scene[] {
+    return Array.from(this.scenes.values());
+  }
+
+  // 加载场景数据
+  public loadSceneData(sceneId: string, data: any): void {
+    const scene = this.scenes.get(sceneId);
+    if (!scene) {
+      throw new Error(`Scene not found: ${sceneId}`);
+    }
+    
+    // 清除现有对象
+    scene.clear();
+    
+    // 解析和添加节点
+    if (data.nodes && Array.isArray(data.nodes)) {
+      this.parseNodes(scene, data.nodes);
+    }
+    
+    // 应用场景设置
+    if (data.settings) {
+      scene.settings = { ...data.settings };
+      
+      // 应用背景色
+      if (data.settings.background) {
+        scene.background = new THREE.Color(data.settings.background);
+      }
+      
+      // 应用其他设置...
+    }
+  }
+
+  // 解析节点数据并重建场景
+  private parseNodes(scene: Scene, nodes: any[]): void {
+    // 实现节点数据解析和重建逻辑
+    // 这个函数需要根据你的节点结构进行实现
+  }
 }
