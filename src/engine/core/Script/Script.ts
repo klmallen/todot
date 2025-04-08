@@ -84,16 +84,44 @@ export abstract class Script {
     this.enabled = enabled;
   }
 
-  // 生命周期方法
-  abstract onStart(): void;  // 脚本首次启动时调用
-
-   /**
-   * 当节点加入场景树时调用（无论场景是否激活）
-   * 此时可以进行初始化操作
+  /**
+   * 获取可编辑属性
+   * 用于序列化和编辑器显示
    */
-   abstract onReady(): void {
-    // 子类可以覆盖这个方法
+  public getEditableProperties(): Record<string, any> {
+    const constructor = this.constructor as any;
+    const editableProps = constructor._editableProps || {};
+    const result: Record<string, any> = {};
+
+    // 收集所有可编辑属性的当前值
+    for (const propKey in editableProps) {
+      if (Object.prototype.hasOwnProperty.call(this, propKey)) {
+        result[propKey] = {
+          value: (this as any)[propKey],
+          metadata: editableProps[propKey],
+        };
+      }
+    }
+
+    return result;
   }
+
+  /**
+   * 将脚本序列化为JSON
+   * 用于场景持久化
+   */
+  public toJSON(): any {
+    return {
+      type: this.constructor.name,
+      id: this.id,
+      enabled: this.enabled,
+      properties: this.getEditableProperties()
+    };
+  }
+
+  // 生命周期方法 - 抽象方法需要子类实现
+  abstract onStart(): void;  // 脚本首次启动时调用
+  abstract onReady(): void;  // 当节点加入场景树时调用（无论场景是否激活）
   
   // 可选的生命周期方法
   onDestroy(): void {}  // 脚本被销毁时调用

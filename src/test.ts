@@ -1,11 +1,10 @@
 import Engine from './engine/core/Engine'
-import { GameObject } from './engine/core/GameObject';
 import * as THREE from 'three';
 import { Scene } from './engine/core/Scene';
 import { Node3d } from './engine/core/Node3d';
 import { MeshInstance3D } from './engine/core/MeshInstance3D';
 import { ModelLoader3D} from './engine/core/ModelLoader3D'
-import { Script } from './engine/core/Script';
+import { Script } from './engine/core/Script/Script';
 import playerGlb from './engine/assets/player'
 import { 
   texture, 
@@ -27,34 +26,62 @@ import {
 import { MeshBasicNodeMaterial, ModelNode } from 'three/webgpu';
 import { CameraNode3D } from './engine/core/CameraNode3D';
 import { MoveNode } from './engine/core/MoveNode';
+import { ScriptRegistry } from './engine/core/Script/ScriptRegistry';
 
 // 创建引擎
-const engine = new Engine().init({
+const engine = await new Engine().init({
   showDefaultUI: true ,
   showHelpers: true,
   addDefaultLights: true ,
   useWebGPU:true
 });
 
+// 添加场景导出/导入按钮
+const buttonContainer = document.createElement('div');
+buttonContainer.style.position = 'absolute';
+buttonContainer.style.top = '10px';
+buttonContainer.style.right = '10px';
+buttonContainer.style.zIndex = '1000';
+document.body.appendChild(buttonContainer);
+
+// 导出按钮
+const exportButton = document.createElement('button');
+exportButton.id = 'export-button';
+exportButton.textContent = '导出场景';
+exportButton.style.marginRight = '10px';
+exportButton.style.padding = '8px 12px';
+buttonContainer.appendChild(exportButton);
+
+// 导入按钮
+const importButton = document.createElement('button');
+importButton.id = 'import-button';
+importButton.textContent = '导入场景';
+importButton.style.padding = '8px 12px';
+buttonContainer.appendChild(importButton);
+
 // 直接创建场景 - 不再使用引擎的工厂方法
 const mainScene = new Scene("主场景");
+const monsterScene = new Scene("怪物场景");
 const uiScene = new Scene("UI场景");
 
 // 直接创建节点 - 不再使用引擎的工厂方法
 const playerNode = new Node3d("玩家");
+const playerNode2 = new Node3d("玩家2");
 
 const enemyNode = new Node3d("敌人");
 const uiNode = new Node3d("UI元素");
 
 
-  document.body.append(generateButton)
 // 添加节点到场景
-mainScene.addNode(playerNode);
+mainScene.addNode(playerNode);  
+monsterScene.addNode(playerNode2);
 mainScene.addNode(enemyNode);
 uiScene.addNode(uiNode);
 
+
 // 将场景添加到引擎
 engine.addScene(mainScene);
+engine.addScene(monsterScene);
 engine.addScene(uiScene);
 
 // 为节点添加脚本
@@ -63,131 +90,167 @@ engine.addScene(uiScene);
 
 // 激活场景
 engine.activateScene("主场景");
+engine.activateScene("怪物场景");
+// engine.activateScene("UI场景");
 
-// 创建角色层次结构
-const characterNode = new Node3d("角色");
+// 创建一个创建角色的函数
+function createCharacter(name: string, position: THREE.Vector3 = new THREE.Vector3(0, 0, 0)): Node3d {
+  const characterNode = new Node3d(name);
 
- // 创建基础节点材质
- const material = new MeshBasicNodeMaterial();
+  // 创建基础节点材质
+  const material = new MeshBasicNodeMaterial();
   
- // 使用TSL定义颜色
- const fragmentColor = tslFn(() => {
-   // 简单的纯红色
-   return vec4(1.0, 0.0, 0.0, 1.0);
- });
- 
- // 设置材质的颜色节点
- material.colorNode = fragmentColor();
+  // 使用TSL定义颜色
+  const fragmentColor = tslFn(() => {
+    return vec4(1.0, 0.0, 0.0, 1.0);
+  });
+  
+  // 设置材质的颜色节点
+  material.colorNode = fragmentColor();
 
-// 躯干
-const torsoMesh = new MeshInstance3D("躯干", 
-  new THREE.BoxGeometry(1, 1.5, 0.5), 
-  material
-);
+  // 躯干
+  const torsoMesh = new MeshInstance3D("躯干", 
+    new THREE.BoxGeometry(1, 1.5, 0.5), 
+    material
+  );
 
-// 头部
-const headMesh = new ModelLoader3D("头部", 
- '../src/engine/assets/player.glb'
-);
-headMesh.setScale(0.5,0.5,0.5)
-//让他竖起来
-headMesh.setRotation(-Math.PI / 2, 0, 0);
-headMesh.setPosition(0, 1.3, 0);
+  // 头部
+  const headMesh = new ModelLoader3D("头部", 
+   '../src/engine/assets/player.glb'
+  );
+  headMesh.setScale(0.5,0.5,0.5);
+  headMesh.setRotation(-Math.PI / 2, 0, 0);
+  headMesh.setPosition(0, 1.3, 0);
 
-// 添加眼睛
-const leftEye = new MeshInstance3D("左眼", 
-  new THREE.SphereGeometry(0.08, 16, 16), 
-  new THREE.MeshStandardMaterial({ color: new THREE.Color('#000000') })
-);
-leftEye.setPosition(-0.15, 0.1, 0.3);
+  // 添加眼睛
+  const leftEye = new MeshInstance3D("左眼", 
+    new THREE.SphereGeometry(0.08, 16, 16), 
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#000000') })
+  );
+  leftEye.setPosition(-0.15, 0.1, 0.3);
 
-const rightEye = new MeshInstance3D("右眼", 
-  new THREE.SphereGeometry(0.08, 16, 16), 
-  new THREE.MeshStandardMaterial({ color: new THREE.Color('#000000') })
-);
-rightEye.setPosition(0.15, 0.1, 0.3);
+  const rightEye = new MeshInstance3D("右眼", 
+    new THREE.SphereGeometry(0.08, 16, 16), 
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#000000') })
+  );
+  rightEye.setPosition(0.15, 0.1, 0.3);
 
-// 添加嘴巴
-const mouth = new MeshInstance3D("嘴巴", 
-  new THREE.BoxGeometry(0.25, 0.05, 0.05), 
-  new THREE.MeshStandardMaterial({ color: new THREE.Color('#ff0000') })
-);
-mouth.setPosition(0, -0.15, 0.3);
+  // 添加嘴巴
+  const mouth = new MeshInstance3D("嘴巴", 
+    new THREE.BoxGeometry(0.25, 0.05, 0.05), 
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#ff0000') })
+  );
+  mouth.setPosition(0, -0.15, 0.3);
 
-// 左臂（创建关节节点和网格）
-const leftArmJoint = new Node3d("左臂关节");
-leftArmJoint.setPosition(-0.5, 0.3, 0);
+  // 左臂
+  const leftArmJoint = new Node3d("左臂关节");
+  leftArmJoint.setPosition(-0.5, 0.3, 0);
 
-const leftArmMesh = new MeshInstance3D("左臂", 
-  new THREE.CylinderGeometry(0.15, 0.15, 0.8, 16), 
-  new THREE.MeshStandardMaterial({ color: 0x3366ff })
-);
-// leftArmMesh.setPosition(0, -0.4, 0);
-// leftArmMesh.setRotation(0, 0, Math.PI/2);
+  const leftArmMesh = new MeshInstance3D("左臂", 
+    new THREE.CylinderGeometry(0.15, 0.15, 0.8, 16), 
+    new THREE.MeshStandardMaterial({ color: 0x3366ff })
+  );
 
-// 右臂
-const rightArmJoint = new Node3d("右臂关节");
-rightArmJoint.setPosition(0.5, 0.3, 0);
+  // 右臂
+  const rightArmJoint = new Node3d("右臂关节");
+  rightArmJoint.setPosition(0.5, 0.3, 0);
 
-const rightArmMesh = new MeshInstance3D("右臂", 
-  new THREE.CylinderGeometry(0.15, 0.15, 0.8, 16), 
-  new THREE.MeshStandardMaterial({ color: 0x3366ff })
-);
-// rightArmMesh.setPosition(0, -0.4, 0);
-// rightArmMesh.setRotation(0, 0, -Math.PI/2);
+  const rightArmMesh = new MeshInstance3D("右臂", 
+    new THREE.CylinderGeometry(0.15, 0.15, 0.8, 16), 
+    new THREE.MeshStandardMaterial({ color: 0x3366ff })
+  );
 
-// 左腿
-const leftLegJoint = new Node3d("左腿关节");
-leftLegJoint.setPosition(-0.3, -0.8, 0);
+  // 左腿
+  const leftLegJoint = new Node3d("左腿关节");
+  leftLegJoint.setPosition(-0.3, -0.8, 0);
 
-const leftLegMesh = new MeshInstance3D("左腿", 
-  new THREE.CylinderGeometry(0.15, 0.15, 1, 16), 
-  new THREE.MeshStandardMaterial({ color: 0x33cc33 })
-);
-leftLegMesh.setPosition(0, -0.5, 0);
+  const leftLegMesh = new MeshInstance3D("左腿", 
+    new THREE.CylinderGeometry(0.15, 0.15, 1, 16), 
+    new THREE.MeshStandardMaterial({ color: 0x33cc33 })
+  );
+  leftLegMesh.setPosition(0, -0.5, 0);
 
-// 右腿
-const rightLegJoint = new Node3d("右腿关节");
-rightLegJoint.setPosition(0.3, -0.8, 0);
+  // 右腿
+  const rightLegJoint = new Node3d("右腿关节");
+  rightLegJoint.setPosition(0.3, -0.8, 0);
 
-const rightLegMesh = new MeshInstance3D("右腿", 
-  new THREE.CylinderGeometry(0.15, 0.15, 1, 16), 
-  new THREE.MeshStandardMaterial({ color: 0x33cc33 })
-);
-rightLegMesh.setPosition(0, -0.5, 0);
+  const rightLegMesh = new MeshInstance3D("右腿", 
+    new THREE.CylinderGeometry(0.15, 0.15, 1, 16), 
+    new THREE.MeshStandardMaterial({ color: 0x33cc33 })
+  );
+  rightLegMesh.setPosition(0, -0.5, 0);
 
-// 构建层次结构
-characterNode.addChild(torsoMesh);
-characterNode.addChild(headMesh);
+  // 构建层次结构
+  characterNode.addChild(torsoMesh);
+  characterNode.addChild(headMesh);
 
-// 添加眼睛和嘴巴到头部
-headMesh.addChild(leftEye);
-headMesh.addChild(rightEye);
-headMesh.addChild(mouth);
+  // 添加眼睛和嘴巴到头部
+  headMesh.addChild(leftEye);
+  headMesh.addChild(rightEye);
+  headMesh.addChild(mouth);
 
-// 添加左臂
-characterNode.addChild(leftArmJoint);
-leftArmJoint.addChild(leftArmMesh);
+  // 添加左臂
+  characterNode.addChild(leftArmJoint);
+  leftArmJoint.addChild(leftArmMesh);
 
-// 添加右臂
-characterNode.addChild(rightArmJoint);
-rightArmJoint.addChild(rightArmMesh);
+  // 添加右臂
+  characterNode.addChild(rightArmJoint);
+  rightArmJoint.addChild(rightArmMesh);
 
-// 添加左腿
-characterNode.addChild(leftLegJoint);
-leftLegJoint.addChild(leftLegMesh);
+  // 添加左腿
+  characterNode.addChild(leftLegJoint);
+  leftLegJoint.addChild(leftLegMesh);
 
-// 添加右腿
-characterNode.addChild(rightLegJoint);
-rightLegJoint.addChild(rightLegMesh);
+  // 添加右腿
+  characterNode.addChild(rightLegJoint);
+  rightLegJoint.addChild(rightLegMesh);
 
+  // 设置位置
+  characterNode.position.copy(position);
+
+  return characterNode;
+}
+
+// 创建主场景的角色
+const mainCharacter = createCharacter("主角色");
+mainScene.addNode(mainCharacter);
+
+// // 创建怪物场景的角色
+const monsterCharacter = createCharacter("怪物角色", new THREE.Vector3(0, 0, -5));
+monsterScene.addNode(monsterCharacter);
+
+// // 为怪物角色添加不同的动画
+// function animateMonsterCharacter() {
+//   const time = Date.now() * 0.001;
+//   const monsterSpeed = 2.0; // 怪物移动速度更快
+  
+//   // 让怪物角色在更大的范围内移动
+//   monsterCharacter.position.set(
+//     Math.sin(time * 0.3) * 5, // 更大的移动范围
+//     0,
+//     Math.cos(time * 0.3) * 5 - 5 // 保持在怪物场景的区域内
+//   );
+  
+//   // 让怪物角色面向移动方向
+//   monsterCharacter.setRotation(
+//     0,
+//     Math.atan2(Math.sin(time * 0.3), Math.cos(time * 0.3)), // 面向移动方向
+//     0
+//   );
+  
+//   requestAnimationFrame(animateMonsterCharacter);
+// }
+// animateMonsterCharacter();
+
+// 创建角色层次结构 
+const characterNode = new Node3d("角色");
 
 class demo1Script extends Script{
   onStart(): void {
     // 初始化逻辑
     console.log(this.getNode()?.findNodeByName('躯干'), 'this');
     const fragmentColor = tslFn(() => {
-      return vec4(1.0, 0.0, 1.0, 1.0);
+      return vec4(1.0, 0.0, 0.3, 1.0);
     });
     const m = new MeshBasicNodeMaterial();
     m.colorNode = fragmentColor();
@@ -201,7 +264,7 @@ class demo1Script extends Script{
     // 例如：根据用户输入移动角色
   }
 }
-characterNode.addScript(demo1Script)
+mainCharacter.addScript(demo1Script)
 // 将角色添加到场景
 mainScene.addNode(characterNode);
 
@@ -233,56 +296,6 @@ cameraNode.setFar(2000);
 // 设置相机跟踪角色
 cameraNode.setTarget(characterNode);
 
-// 示例：动画 - 摆动手臂和腿部，实现行走
-function animateCharacter() {
-  const time = Date.now() * 0.001;
-  const walkSpeed = 1.5; // 行走速度
-  
-  // 摆动左臂
-  leftArmJoint.setRotation(
-    Math.sin(time * walkSpeed) * 0.5, // 沿X轴旋转（前后摆动）
-    0,
-    0
-  );
-  
-  // 摆动右臂（反相位）
-  rightArmJoint.setRotation(
-    -Math.sin(time * walkSpeed) * 0.5, // 沿X轴旋转（前后摆动）
-    0,
-    0
-  );
-  
-  // 摆动左腿（与右臂同相位）
-  leftLegJoint.setRotation(
-    -Math.sin(time * walkSpeed) * 0.5,
-    0,
-    0
-  );
-  
-  // 摆动右腿（与左臂同相位）
-  rightLegJoint.setRotation(
-    Math.sin(time * walkSpeed) * 0.5,
-    0,
-    0
-  );
-  
-  // 让角色前进
-  characterNode.position = new THREE.Vector3(
-    -Math.sin(time * 0.5) * 3, // 让角色在场景中移动
-    0,
-    -Math.cos(time * 0.5) * 3  // 圆形路径
-  );
-  
-  // 让角色面向行走方向
-  characterNode.setRotation(
-    0,
-    0,
-    0
-  );
-  
-  requestAnimationFrame(animateCharacter);
-}
-animateCharacter();
 
 // 创建一个MoveNode实例（作为Node3d的子类直接使用）
 const movableCharacter = new MoveNode("可移动角色", {
@@ -366,7 +379,58 @@ document.addEventListener('click', (event) => {
   });
 });
 
+// 注册自定义脚本到ScriptRegistry，包含路径信息
+ScriptRegistry.registerScript('demo1Script', demo1Script, './engine/core/Script/demo1Script');
+
 // 启动引擎
 engine.start();
 
 console.log(engine,'engine')
+
+// 导出按钮点击事件
+exportButton.addEventListener('click', () => {
+  try {
+    // 导出引擎状态
+    const engineState = engine.exportEngineState();
+    
+    // 导出主场景
+    const mainSceneJSON = engine.exportSceneToJSON("主场景");
+    
+    // 导出怪物场景
+    const monsterSceneJSON = engine.exportSceneToJSON("怪物场景");
+    
+    // 创建包含所有数据的对象
+    const exportData = {
+      engineState,
+      scenes: {
+        mainScene: mainSceneJSON,
+        monsterScene: monsterSceneJSON
+      }
+    };
+    console.log(exportData,'exportData')
+    // 转换为JSON字符串
+    const jsonStr = JSON.stringify(exportData, null, 2);
+    
+    // 创建下载链接
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'game_state.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    console.log("成功导出游戏状态");
+  } catch (error) {
+    console.error("导出失败:", error);
+  }
+});
+
+// 模拟加载保存的场景
+setTimeout(() => {
+  const savedSceneJSON = JSON.parse(localStorage.getItem("savedScene") || "{}");
+  engine.importSceneFromJSON(savedSceneJSON);
+  console.log("场景已从JSON重新加载");
+}, 1000);

@@ -24,6 +24,7 @@ export default class Engine {
   private uiComponents: Map<string, HTMLElement> = new Map();
   private canvas: HTMLCanvasElement;
   private boundOnWindowResize: () => void;
+  private activeScenes: Set<string> = new Set();  // 存储激活的场景名称
 
   constructor(canvas?: HTMLCanvasElement, physics: IPhysics | null = null) {
     // 确保单例实现
@@ -363,28 +364,104 @@ export default class Engine {
     rootNode.onReady();
   }
 
-  // 激活场景
-  public activateScene(name: string): void {
+  /**
+   * 激活场景
+   * @param name 场景名称
+   * @param exclusive 是否独占激活（停用其他场景）
+   */
+  public activateScene(name: string, exclusive: boolean = false): void {
     const scene = this.scenes.get(name);
     if (scene) {
-      // 停用当前活跃的场景
-      this.scenes.forEach(otherScene => {
-        if (otherScene !== scene && otherScene.isActive()) {
-          otherScene.deactivate();
-        }
-      });
-      scene.activate(); // 这将触发 onEnterScene
+      if (exclusive) {
+        // 停用所有其他场景
+        this.scenes.forEach((otherScene, sceneName) => {
+          if (sceneName !== name && otherScene.isActive()) {
+            otherScene.deactivate();
+            this.activeScenes.delete(sceneName);
+            this.threeScene.remove(otherScene.getThreeObject());
+          }
+        });
+      }
+      
+      scene.activate();
+      this.activeScenes.add(name);
       this.threeScene.add(scene.getThreeObject());
     }
   }
 
-  // 停用场景
+  /**
+   * 停用场景
+   * @param name 场景名称
+   */
   public deactivateScene(name: string): void {
     const scene = this.scenes.get(name);
     if (scene) {
-      scene.deactivate(); // 这将触发 onExitScene
+      scene.deactivate();
+      this.activeScenes.delete(name);
       this.threeScene.remove(scene.getThreeObject());
     }
+  }
+
+  /**
+   * 检查场景是否激活
+   * @param name 场景名称
+   */
+  public isSceneActive(name: string): boolean {
+    return this.activeScenes.has(name);
+  }
+
+  /**
+   * 获取所有激活的场景
+   */
+  public getActiveScenes(): Scene[] {
+    return Array.from(this.activeScenes).map(name => this.scenes.get(name)).filter(Boolean) as Scene[];
+  }
+
+  /**
+   * 导出引擎状态
+   */
+  public exportEngineState(): any {
+    const scenes: { [name: string]: any } = {};
+    
+    // 序列化所有场景
+    this.scenes.forEach((scene, name) => {
+      scenes[name] = scene.toJSON();
+    });
+    
+    return {
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      scenes,
+      activeScenes: Array.from(this.activeScenes),
+      settings: {
+        // 可以添加引擎级别的设置
+      }
+    };
+  }
+
+  /**
+   * 导入引擎状态
+   * @param state 引擎状态
+   */
+  public importEngineState(state: any): void {
+    // 验证版本
+    if (state.version !== '1.0.0') {
+      console.warn('引擎状态版本不匹配');
+    }
+    
+    // 清除现有状态
+    this.reset();
+    
+    // 导入场景
+    Object.entries(state.scenes).forEach(([name, sceneData]) => {
+      const scene = SceneSerializer.deserializeScene(JSON.stringify(sceneData));
+      this.addScene(scene);
+    });
+    
+    // 激活场景
+    state.activeScenes.forEach((name: string) => {
+      this.activateScene(name, false);
+    });
   }
 
   // 获取场景
@@ -482,13 +559,56 @@ export default class Engine {
     }
   }
 
+  /**
+   * 将场景导出为JSON对象
+   * @param sceneName 场景名称
+   * @returns 场景的JSON表示
+   */
+  public exportSceneToJSON(sceneName: string): any {
+    const scene = this.scenes.get(sceneName);
+    if (!scene) {
+      console.error(`场景 ${sceneName} 不存在`);
+      return null;
+    }
+    
+    const jsonStr = SceneSerializer.serializeScene(scene, false);
+    return JSON.parse(jsonStr);
+  }
+
+  /**
+   * 从JSON对象导入场景
+   * @param jsonData 场景的JSON表示
+   * @returns 加载的场景名称
+   */
+  public importSceneFromJSON(jsonData: any): string {
+    try {
+      // 如果传入的是对象，转换为字符串
+      const jsonStr = typeof jsonData === 'string' ? jsonData : JSON.stringify(jsonData);
+      
+      const scene = SceneSerializer.deserializeScene(jsonStr);
+      const sceneName = scene.getName();
+      
+      // 如果场景已存在，先移除
+      if (this.scenes.has(sceneName)) {
+        this.removeScene(sceneName);
+      }
+      
+      // 添加新场景
+      this.addScene(scene);
+      return sceneName;
+    } catch (error) {
+      console.error('从JSON导入场景失败:', error);
+      throw error;
+    }
+  }
+
   // 重置引擎状态
   public reset(): void {
     // 清除所有场景
     this.scenes.clear();
     
     // 重置其他状态
-    this.activeScene = null;
+    this.activeScenes.clear();
     
     // 重置渲染器状态
     this.renderer.setSize(this.canvas.width, this.canvas.height);

@@ -55,8 +55,8 @@ export class SceneSerializer {
    * @returns 新的场景实例
    */
   public static deserializeScene(jsonStr: string): Scene {
-    const data = JSON.parse(jsonStr);
-    const sceneData = data.scene;
+    debugger
+    const sceneData =JSON.parse(jsonStr)
     
     // 创建新场景
     const scene = new Scene(sceneData.name);
@@ -289,8 +289,21 @@ export class SceneSerializer {
    * @param scriptData 脚本数据
    */
   private static deserializeScript(node: Node3d, scriptData: any): void {
-    // 从ScriptRegistry获取脚本类
-    const ScriptConstructor = ScriptRegistry.getScript(scriptData.type);
+    // 优先从ScriptRegistry获取脚本类
+    let ScriptConstructor = ScriptRegistry.getScript(scriptData.type);
+    
+    // 如果没有从ScriptRegistry找到，尝试使用路径
+    if (!ScriptConstructor && scriptData.path) {
+      try {
+        // 在实际应用中，您可能需要使用动态导入或其他方式加载脚本
+        // 这里仅作为演示，使用已注册的脚本类型
+        console.log(`尝试从路径加载脚本: ${scriptData.path}`);
+        // 注意：在实际应用中，您需要实现相应的脚本加载逻辑
+        // 例如: ScriptConstructor = await import(scriptData.path).default;
+      } catch (error) {
+        console.warn(`从路径加载脚本失败: ${scriptData.path}`, error);
+      }
+    }
     
     if (ScriptConstructor) {
       // 创建脚本实例
@@ -302,8 +315,13 @@ export class SceneSerializer {
       // 设置脚本属性
       if (scriptData.properties && typeof scriptData.properties === 'object') {
         Object.keys(scriptData.properties).forEach(key => {
+          const propData = scriptData.properties[key];
           try {
-            (script as any)[key] = scriptData.properties[key];
+            if (propData && typeof propData === 'object' && 'value' in propData) {
+              (script as any)[key] = propData.value;
+            } else {
+              (script as any)[key] = propData;
+            }
           } catch (error) {
             console.warn(`为脚本设置属性 ${key} 失败:`, error);
           }
@@ -315,7 +333,7 @@ export class SceneSerializer {
         script.setEnabled(scriptData.enabled);
       }
     } else {
-      console.warn(`未找到脚本类型: ${scriptData.type}，请确保已注册到ScriptRegistry`);
+      console.warn(`未找到脚本类型: ${scriptData.type}，请确保已注册到ScriptRegistry或提供有效的脚本路径`);
     }
   }
   
@@ -338,6 +356,26 @@ export class SceneSerializer {
         }
       }
     });
+  }
+  
+  /**
+   * 将场景导出为JSON对象
+   * @param scene 要导出的场景
+   * @returns JSON对象
+   */
+  public static exportSceneToObject(scene: Scene): any {
+    const jsonStr = this.serializeScene(scene, false);
+    return JSON.parse(jsonStr);
+  }
+  
+  /**
+   * 从JSON对象导入场景
+   * @param jsonObj JSON对象
+   * @returns 场景实例
+   */
+  public static importSceneFromObject(jsonObj: any): Scene {
+    const jsonStr = typeof jsonObj === 'string' ? jsonObj : JSON.stringify(jsonObj);
+    return this.deserializeScene(jsonStr);
   }
   
   /**
@@ -383,5 +421,206 @@ export class SceneSerializer {
       
       reader.readAsText(file);
     });
+  }
+
+  /**
+   * 序列化引擎状态
+   * @param engine 引擎实例
+   */
+  public static serializeEngineState(engine: Engine): string {
+    return JSON.stringify(engine.exportEngineState());
+  }
+
+  /**
+   * 反序列化引擎状态
+   * @param json 引擎状态JSON字符串
+   * @param engine 引擎实例
+   */
+  public static deserializeEngineState(json: string, engine: Engine): void {
+    const state = JSON.parse(json);
+    engine.importEngineState(state);
+  }
+
+  private serializeNode(node: Node3d): any {
+    const data: any = {
+      id: node.id,
+      name: node.name,
+      type: node.type,
+      position: node.getPosition(),
+      rotation: node.getRotation(),
+      scale: node.getScale(),
+      visible: node.isVisible,
+      tags: node.tags,
+      children: node.children.map(child => this.serializeNode(child)),
+      scripts: node.scripts.map(script => this.serializeScript(script))
+    };
+    alert(node instanceof ModelLoader3D)
+    // 处理 ModelLoader3D 的特殊情况
+    if (node instanceof ModelLoader3D) {
+    
+      data.modelPath = node.modelPath;
+      alert(node.modelPath)
+    }
+
+    // 处理 Mesh 的特殊情况
+    if (node instanceof THREE.Mesh) {
+      data.geometry = this.serializeGeometry(node.geometry);
+      data.material = this.serializeMaterial(node.material);
+    }
+
+    return data;
+  }
+
+  private serializeGeometry(geometry: THREE.BufferGeometry): any {
+    if (!geometry) return null;
+
+    const data: any = {
+      type: geometry.type,
+      attributes: {}
+    };
+
+    // 序列化几何体的属性
+    for (const name in geometry.attributes) {
+      const attribute = geometry.attributes[name];
+      data.attributes[name] = {
+        array: Array.from(attribute.array),
+        itemSize: attribute.itemSize,
+        normalized: attribute.normalized
+      };
+    }
+
+    return data;
+  }
+
+  private serializeMaterial(material: THREE.Material): any {
+    if (!material) return null;
+
+    const data: any = {
+      type: material.type,
+      uuid: material.uuid,
+      name: material.name,
+      color: material.color?.getHex(),
+      opacity: material.opacity,
+      transparent: material.transparent,
+      side: material.side,
+      depthWrite: material.depthWrite,
+      depthTest: material.depthTest
+    };
+
+    // 处理不同类型的材质
+    if (material instanceof THREE.MeshStandardMaterial) {
+      data.roughness = material.roughness;
+      data.metalness = material.metalness;
+      data.envMapIntensity = material.envMapIntensity;
+    }
+
+    return data;
+  }
+
+  private deserializeNode(data: any): Node3d {
+    let node: Node3d;
+
+    // 根据类型创建节点
+    switch (data.type) {
+      case 'ModelLoader3D':
+        node = new ModelLoader3D(data.name);
+        if (data.modelPath) {
+          (node as ModelLoader3D).modelPath = data.modelPath;
+        }
+        break;
+      case 'Mesh':
+        const geometry = this.deserializeGeometry(data.geometry);
+        const material = this.deserializeMaterial(data.material);
+        node = new THREE.Mesh(data.name, geometry, material);
+        break;
+      default:
+        node = new Node3d(data.name);
+    }
+
+    // 设置基本属性
+    node.id = data.id;
+    node.setPosition(data.position);
+    node.setRotation(data.rotation);
+    node.setScale(data.scale);
+    node.isVisible = data.visible;
+
+    // 添加标签
+    data.tags.forEach((tag: string) => node.addTag(tag));
+
+    // 递归处理子节点
+    data.children.forEach((childData: any) => {
+      const child = this.deserializeNode(childData);
+      node.addChild(child);
+    });
+
+    // 处理脚本
+    data.scripts.forEach((scriptData: any) => {
+      this.deserializeScript(node, scriptData);
+    });
+
+    return node;
+  }
+
+  private deserializeGeometry(data: any): THREE.BufferGeometry {
+    if (!data) return null;
+
+    let geometry: THREE.BufferGeometry;
+
+    // 根据类型创建几何体
+    switch (data.type) {
+      case 'BoxGeometry':
+        geometry = new THREE.BoxGeometry();
+        break;
+      case 'SphereGeometry':
+        geometry = new THREE.SphereGeometry();
+        break;
+      default:
+        geometry = new THREE.BufferGeometry();
+    }
+
+    // 设置属性
+    for (const name in data.attributes) {
+      const attribute = data.attributes[name];
+      geometry.setAttribute(
+        name,
+        new THREE.BufferAttribute(
+          new Float32Array(attribute.array),
+          attribute.itemSize,
+          attribute.normalized
+        )
+      );
+    }
+
+    return geometry;
+  }
+
+  private deserializeMaterial(data: any): THREE.Material {
+    if (!data) return null;
+
+    let material: THREE.Material;
+
+    // 根据类型创建材质
+    switch (data.type) {
+      case 'MeshStandardMaterial':
+        material = new THREE.MeshStandardMaterial();
+        (material as THREE.MeshStandardMaterial).roughness = data.roughness;
+        (material as THREE.MeshStandardMaterial).metalness = data.metalness;
+        (material as THREE.MeshStandardMaterial).envMapIntensity = data.envMapIntensity;
+        break;
+      default:
+        material = new THREE.MeshBasicMaterial();
+    }
+
+    // 设置基本属性
+    material.uuid = data.uuid;
+    material.name = data.name;
+    if (data.color) material.color.setHex(data.color);
+    material.opacity = data.opacity;
+    material.transparent = data.transparent;
+    material.side = data.side;
+    material.depthWrite = data.depthWrite;
+    material.depthTest = data.depthTest;
+
+    return material;
   }
 }

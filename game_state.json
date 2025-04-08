@@ -1,0 +1,2750 @@
+{
+  "engineState": {
+    "version": "1.0.0",
+    "timestamp": "2025-04-08T07:50:37.522Z",
+    "scenes": {
+      "主场景": {
+        "name": "主场景",
+        "active": true,
+        "rootNode": {
+          "id": "a648a88b-dd30-48cc-a756-4955bc67f785",
+          "name": "根节点",
+          "type": "Node3d",
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          },
+          "visible": true,
+          "tags": [],
+          "children": [
+            {
+              "id": "5b1c7b84-974a-4dcb-8367-33c93c5a82ec",
+              "name": "玩家",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [],
+              "scripts": []
+            },
+            {
+              "id": "de935170-8748-426f-a9e9-448fb6e51d8d",
+              "name": "敌人",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [],
+              "scripts": []
+            },
+            {
+              "id": "d0668951-19f6-4a9d-971c-9487fe2b44da",
+              "name": "主角色",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "1a18bad1-ea4a-4070-8a2e-ce30d4b17bde",
+                  "name": "躯干",
+                  "type": "MeshInstance3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [
+                    "mesh",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "geometry": {
+                    "type": "BoxGeometry"
+                  },
+                  "material": {
+                    "type": "MeshBasicNodeMaterial",
+                    "color": 16777215,
+                    "transparent": false,
+                    "opacity": 1
+                  },
+                  "instancing": {
+                    "enabled": false,
+                    "count": 1
+                  }
+                },
+                {
+                  "id": "d349f751-c294-4341-99eb-e5309c2c3b18",
+                  "name": "头部",
+                  "type": "ModelLoader3D",
+                  "position": {
+                    "x": 0,
+                    "y": 1.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": -1.5707963267948966,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 0.5,
+                    "y": 0.5,
+                    "z": 0.5
+                  },
+                  "visible": true,
+                  "tags": [
+                    "model",
+                    "renderable"
+                  ],
+                  "children": [
+                    {
+                      "id": "86c38a71-a0a5-4e3e-a397-cf97cb0ea790",
+                      "name": "左眼",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": -0.15,
+                        "y": 0.1,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "SphereGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 0,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    },
+                    {
+                      "id": "577d0968-eb7f-4904-9085-16a62c9e327a",
+                      "name": "右眼",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0.15,
+                        "y": 0.1,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "SphereGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 0,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    },
+                    {
+                      "id": "56ae76f4-4861-4b9d-960c-3d3c0b133755",
+                      "name": "嘴巴",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.15,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "BoxGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 16711680,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": [],
+                  "modelPath": ""
+                },
+                {
+                  "id": "7a44c9bc-004a-4e6d-af65-53b5a9d644b7",
+                  "name": "左臂关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": -0.5,
+                    "y": 0.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "596e160f-315b-4937-9832-9e46f7c051bf",
+                      "name": "左臂",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3368703,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "5340a2d4-c122-4787-8890-b8875e44da6b",
+                  "name": "右臂关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": 0.5,
+                    "y": 0.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "e11c5f41-7518-4177-8358-95e68735d3b9",
+                      "name": "右臂",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3368703,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "fb35a253-c67c-4c49-8d91-f8476b52079a",
+                  "name": "左腿关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": -0.3,
+                    "y": -0.8,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "1ea364e5-1d60-473b-b6a2-ba69d315ded5",
+                      "name": "左腿",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.5,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3394611,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "b5e6137b-59e6-4d42-ad88-22c5f0b53b8e",
+                  "name": "右腿关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": 0.3,
+                    "y": -0.8,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "e43fbf56-8ecc-490a-a792-fa5570661dd7",
+                      "name": "右腿",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.5,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3394611,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                }
+              ],
+              "scripts": [
+                {
+                  "type": "demo1Script",
+                  "path": "./engine/core/Script/demo1Script",
+                  "id": "410ded0f-6523-44e9-affa-c820d4c5fa25",
+                  "enabled": true,
+                  "properties": {}
+                }
+              ]
+            },
+            {
+              "id": "8f46013b-856c-4c8a-9aa5-e50eb9fafb3c",
+              "name": "角色",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [],
+              "scripts": []
+            },
+            {
+              "id": "76f8487d-4d37-4a1f-9b2a-f219762178cb",
+              "name": "主相机",
+              "type": "CameraNode3D",
+              "position": {
+                "x": 0,
+                "y": 5,
+                "z": 10
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [
+                "camera"
+              ],
+              "children": [],
+              "scripts": [],
+              "cameraSettings": {
+                "fov": 60,
+                "near": 0.5,
+                "far": 2000
+              }
+            },
+            {
+              "id": "7c755384-f567-465a-88c1-0b86d27094d1",
+              "name": "可移动角色",
+              "type": "MoveNode",
+              "position": {
+                "x": -1.7453313755238749,
+                "y": 0,
+                "z": -4.532339867403679
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "a9633b20-c0f7-4e8d-a677-3c6b61f058ba",
+                  "name": "角色网格",
+                  "type": "MeshInstance3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [
+                    "mesh",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "geometry": {
+                    "type": "BoxGeometry"
+                  },
+                  "material": {
+                    "type": "MeshStandardMaterial",
+                    "color": 65280,
+                    "transparent": false,
+                    "opacity": 1
+                  },
+                  "instancing": {
+                    "enabled": false,
+                    "count": 1
+                  }
+                }
+              ],
+              "scripts": []
+            },
+            {
+              "id": "bef3bf94-37d0-44e3-a035-6fb2cd00ed70",
+              "name": "跟随者",
+              "type": "MoveNode",
+              "position": {
+                "x": 5.7835443732642444e-21,
+                "y": 0.9999999999999989,
+                "z": -9.999999999999982
+              },
+              "rotation": {
+                "x": -3.0419241088406386,
+                "y": 0.000017947652484751985,
+                "z": 3.141591215975736
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "2ba5528a-d32d-4a72-92b5-a7166c666355",
+                  "name": "跟随者网格",
+                  "type": "MeshInstance3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [
+                    "mesh",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "geometry": {
+                    "type": "SphereGeometry"
+                  },
+                  "material": {
+                    "type": "MeshStandardMaterial",
+                    "color": 16711680,
+                    "transparent": false,
+                    "opacity": 1
+                  },
+                  "instancing": {
+                    "enabled": false,
+                    "count": 1
+                  }
+                }
+              ],
+              "scripts": []
+            },
+            {
+              "id": "a13c45ea-f97c-475f-81b6-74823f08c44d",
+              "name": "点击移动节点",
+              "type": "MoveNode",
+              "position": {
+                "x": -0.9601826953033026,
+                "y": 0,
+                "z": 1.2511548514263593
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "f936f4a0-877d-46ee-9fd5-ffe49230498a",
+                  "name": "点击移动网格",
+                  "type": "MeshInstance3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [
+                    "mesh",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "geometry": {
+                    "type": "ConeGeometry"
+                  },
+                  "material": {
+                    "type": "MeshStandardMaterial",
+                    "color": 255,
+                    "transparent": false,
+                    "opacity": 1
+                  },
+                  "instancing": {
+                    "enabled": false,
+                    "count": 1
+                  }
+                }
+              ],
+              "scripts": []
+            }
+          ],
+          "scripts": []
+        }
+      },
+      "怪物场景": {
+        "name": "怪物场景",
+        "active": true,
+        "rootNode": {
+          "id": "4e25f600-3c4b-49c8-ba4c-7d5ff94f3c92",
+          "name": "根节点",
+          "type": "Node3d",
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          },
+          "visible": true,
+          "tags": [],
+          "children": [
+            {
+              "id": "9e9dd362-2ff2-48d4-b8d4-0a4be75f3463",
+              "name": "玩家2",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [],
+              "scripts": []
+            },
+            {
+              "id": "21c56af3-34ba-4d6f-860d-75e22eab7dc3",
+              "name": "怪物角色",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": -5
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "df0979e6-133f-4267-80a3-37c1466e28f8",
+                  "name": "躯干",
+                  "type": "MeshInstance3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [
+                    "mesh",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "geometry": {
+                    "type": "BoxGeometry"
+                  },
+                  "material": {
+                    "type": "MeshBasicNodeMaterial",
+                    "color": 16777215,
+                    "transparent": false,
+                    "opacity": 1
+                  },
+                  "instancing": {
+                    "enabled": false,
+                    "count": 1
+                  }
+                },
+                {
+                  "id": "bc7fcf82-6026-44c6-87b6-e81a96be5659",
+                  "name": "头部",
+                  "type": "ModelLoader3D",
+                  "position": {
+                    "x": 0,
+                    "y": 1.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": -1.5707963267948966,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 0.5,
+                    "y": 0.5,
+                    "z": 0.5
+                  },
+                  "visible": true,
+                  "tags": [
+                    "model",
+                    "renderable"
+                  ],
+                  "children": [
+                    {
+                      "id": "adf5b8c2-b556-498b-b331-1319aa46e5c5",
+                      "name": "左眼",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": -0.15,
+                        "y": 0.1,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "SphereGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 0,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    },
+                    {
+                      "id": "35af4b70-6251-4d18-8473-a96812b76358",
+                      "name": "右眼",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0.15,
+                        "y": 0.1,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "SphereGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 0,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    },
+                    {
+                      "id": "5c080202-587a-4703-9dcb-435db83bd746",
+                      "name": "嘴巴",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.15,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "BoxGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 16711680,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": [],
+                  "modelPath": ""
+                },
+                {
+                  "id": "095b84f6-b1b6-4130-8405-17f7220e15ec",
+                  "name": "左臂关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": -0.5,
+                    "y": 0.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "76bd60ad-a54b-4bf8-a35b-97c9f38ad4ee",
+                      "name": "左臂",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3368703,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "8a853ddd-2325-4c5a-b45b-c315c5d74aa7",
+                  "name": "右臂关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": 0.5,
+                    "y": 0.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "98873bfd-dcfa-4313-8326-bd42e1b48e1a",
+                      "name": "右臂",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3368703,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "1c15c82a-0347-4d47-8cc4-a848c8901b6c",
+                  "name": "左腿关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": -0.3,
+                    "y": -0.8,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "f31e5c20-d662-4cf6-ac77-25e48eaee062",
+                      "name": "左腿",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.5,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3394611,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "f71cd44f-bd96-4304-a600-170bcb2ec60f",
+                  "name": "右腿关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": 0.3,
+                    "y": -0.8,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "1e76fee8-758e-4880-a380-ff08dba026a3",
+                      "name": "右腿",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.5,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3394611,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                }
+              ],
+              "scripts": []
+            }
+          ],
+          "scripts": []
+        }
+      },
+      "UI场景": {
+        "name": "UI场景",
+        "active": false,
+        "rootNode": {
+          "id": "8854c3db-7eac-4f93-b448-bbb980c68cea",
+          "name": "根节点",
+          "type": "Node3d",
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          },
+          "visible": true,
+          "tags": [],
+          "children": [
+            {
+              "id": "004cdd8a-e004-4ad3-b404-f9e63d012b64",
+              "name": "UI元素",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [],
+              "scripts": []
+            }
+          ],
+          "scripts": []
+        }
+      }
+    },
+    "activeScenes": [
+      "主场景",
+      "怪物场景"
+    ],
+    "settings": {}
+  },
+  "scenes": {
+    "mainScene": {
+      "version": "1.0.0",
+      "timestamp": "2025-04-08T07:50:37.523Z",
+      "engine": "VFX-Editor",
+      "scene": {
+        "name": "主场景",
+        "active": true,
+        "rootNode": {
+          "id": "a648a88b-dd30-48cc-a756-4955bc67f785",
+          "name": "根节点",
+          "type": "Node3d",
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          },
+          "visible": true,
+          "tags": [],
+          "children": [
+            {
+              "id": "5b1c7b84-974a-4dcb-8367-33c93c5a82ec",
+              "name": "玩家",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [],
+              "scripts": []
+            },
+            {
+              "id": "de935170-8748-426f-a9e9-448fb6e51d8d",
+              "name": "敌人",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [],
+              "scripts": []
+            },
+            {
+              "id": "d0668951-19f6-4a9d-971c-9487fe2b44da",
+              "name": "主角色",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "1a18bad1-ea4a-4070-8a2e-ce30d4b17bde",
+                  "name": "躯干",
+                  "type": "MeshInstance3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [
+                    "mesh",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "geometry": {
+                    "type": "BoxGeometry"
+                  },
+                  "material": {
+                    "type": "MeshBasicNodeMaterial",
+                    "color": 16777215,
+                    "transparent": false,
+                    "opacity": 1
+                  },
+                  "instancing": {
+                    "enabled": false,
+                    "count": 1
+                  }
+                },
+                {
+                  "id": "d349f751-c294-4341-99eb-e5309c2c3b18",
+                  "name": "头部",
+                  "type": "ModelLoader3D",
+                  "position": {
+                    "x": 0,
+                    "y": 1.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": -1.5707963267948966,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 0.5,
+                    "y": 0.5,
+                    "z": 0.5
+                  },
+                  "visible": true,
+                  "tags": [
+                    "model",
+                    "renderable"
+                  ],
+                  "children": [
+                    {
+                      "id": "86c38a71-a0a5-4e3e-a397-cf97cb0ea790",
+                      "name": "左眼",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": -0.15,
+                        "y": 0.1,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "SphereGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 0,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    },
+                    {
+                      "id": "577d0968-eb7f-4904-9085-16a62c9e327a",
+                      "name": "右眼",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0.15,
+                        "y": 0.1,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "SphereGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 0,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    },
+                    {
+                      "id": "56ae76f4-4861-4b9d-960c-3d3c0b133755",
+                      "name": "嘴巴",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.15,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "BoxGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 16711680,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": [],
+                  "modelPath": ""
+                },
+                {
+                  "id": "7a44c9bc-004a-4e6d-af65-53b5a9d644b7",
+                  "name": "左臂关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": -0.5,
+                    "y": 0.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "596e160f-315b-4937-9832-9e46f7c051bf",
+                      "name": "左臂",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3368703,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "5340a2d4-c122-4787-8890-b8875e44da6b",
+                  "name": "右臂关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": 0.5,
+                    "y": 0.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "e11c5f41-7518-4177-8358-95e68735d3b9",
+                      "name": "右臂",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3368703,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "fb35a253-c67c-4c49-8d91-f8476b52079a",
+                  "name": "左腿关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": -0.3,
+                    "y": -0.8,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "1ea364e5-1d60-473b-b6a2-ba69d315ded5",
+                      "name": "左腿",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.5,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3394611,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "b5e6137b-59e6-4d42-ad88-22c5f0b53b8e",
+                  "name": "右腿关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": 0.3,
+                    "y": -0.8,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "e43fbf56-8ecc-490a-a792-fa5570661dd7",
+                      "name": "右腿",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.5,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3394611,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                }
+              ],
+              "scripts": [
+                {
+                  "type": "demo1Script",
+                  "path": "./engine/core/Script/demo1Script",
+                  "id": "410ded0f-6523-44e9-affa-c820d4c5fa25",
+                  "enabled": true,
+                  "properties": {}
+                }
+              ]
+            },
+            {
+              "id": "8f46013b-856c-4c8a-9aa5-e50eb9fafb3c",
+              "name": "角色",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [],
+              "scripts": []
+            },
+            {
+              "id": "76f8487d-4d37-4a1f-9b2a-f219762178cb",
+              "name": "主相机",
+              "type": "CameraNode3D",
+              "position": {
+                "x": 0,
+                "y": 5,
+                "z": 10
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [
+                "camera"
+              ],
+              "children": [],
+              "scripts": [],
+              "cameraSettings": {
+                "fov": 60,
+                "near": 0.5,
+                "far": 2000
+              }
+            },
+            {
+              "id": "7c755384-f567-465a-88c1-0b86d27094d1",
+              "name": "可移动角色",
+              "type": "MoveNode",
+              "position": {
+                "x": -1.7453313755238749,
+                "y": 0,
+                "z": -4.532339867403679
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "a9633b20-c0f7-4e8d-a677-3c6b61f058ba",
+                  "name": "角色网格",
+                  "type": "MeshInstance3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [
+                    "mesh",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "geometry": {
+                    "type": "BoxGeometry"
+                  },
+                  "material": {
+                    "type": "MeshStandardMaterial",
+                    "color": 65280,
+                    "transparent": false,
+                    "opacity": 1
+                  },
+                  "instancing": {
+                    "enabled": false,
+                    "count": 1
+                  }
+                }
+              ],
+              "scripts": []
+            },
+            {
+              "id": "bef3bf94-37d0-44e3-a035-6fb2cd00ed70",
+              "name": "跟随者",
+              "type": "MoveNode",
+              "position": {
+                "x": 5.7835443732642444e-21,
+                "y": 0.9999999999999989,
+                "z": -9.999999999999982
+              },
+              "rotation": {
+                "x": -3.0419241088406386,
+                "y": 0.000017947652484751985,
+                "z": 3.141591215975736
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "2ba5528a-d32d-4a72-92b5-a7166c666355",
+                  "name": "跟随者网格",
+                  "type": "MeshInstance3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [
+                    "mesh",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "geometry": {
+                    "type": "SphereGeometry"
+                  },
+                  "material": {
+                    "type": "MeshStandardMaterial",
+                    "color": 16711680,
+                    "transparent": false,
+                    "opacity": 1
+                  },
+                  "instancing": {
+                    "enabled": false,
+                    "count": 1
+                  }
+                }
+              ],
+              "scripts": []
+            },
+            {
+              "id": "a13c45ea-f97c-475f-81b6-74823f08c44d",
+              "name": "点击移动节点",
+              "type": "MoveNode",
+              "position": {
+                "x": -0.9601826953033026,
+                "y": 0,
+                "z": 1.2511548514263593
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "f936f4a0-877d-46ee-9fd5-ffe49230498a",
+                  "name": "点击移动网格",
+                  "type": "MeshInstance3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [
+                    "mesh",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "geometry": {
+                    "type": "ConeGeometry"
+                  },
+                  "material": {
+                    "type": "MeshStandardMaterial",
+                    "color": 255,
+                    "transparent": false,
+                    "opacity": 1
+                  },
+                  "instancing": {
+                    "enabled": false,
+                    "count": 1
+                  }
+                }
+              ],
+              "scripts": []
+            }
+          ],
+          "scripts": []
+        }
+      }
+    },
+    "monsterScene": {
+      "version": "1.0.0",
+      "timestamp": "2025-04-08T07:50:37.523Z",
+      "engine": "VFX-Editor",
+      "scene": {
+        "name": "怪物场景",
+        "active": true,
+        "rootNode": {
+          "id": "4e25f600-3c4b-49c8-ba4c-7d5ff94f3c92",
+          "name": "根节点",
+          "type": "Node3d",
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          },
+          "visible": true,
+          "tags": [],
+          "children": [
+            {
+              "id": "9e9dd362-2ff2-48d4-b8d4-0a4be75f3463",
+              "name": "玩家2",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [],
+              "scripts": []
+            },
+            {
+              "id": "21c56af3-34ba-4d6f-860d-75e22eab7dc3",
+              "name": "怪物角色",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": -5
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "df0979e6-133f-4267-80a3-37c1466e28f8",
+                  "name": "躯干",
+                  "type": "MeshInstance3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [
+                    "mesh",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "geometry": {
+                    "type": "BoxGeometry"
+                  },
+                  "material": {
+                    "type": "MeshBasicNodeMaterial",
+                    "color": 16777215,
+                    "transparent": false,
+                    "opacity": 1
+                  },
+                  "instancing": {
+                    "enabled": false,
+                    "count": 1
+                  }
+                },
+                {
+                  "id": "bc7fcf82-6026-44c6-87b6-e81a96be5659",
+                  "name": "头部",
+                  "type": "ModelLoader3D",
+                  "position": {
+                    "x": 0,
+                    "y": 1.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": -1.5707963267948966,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 0.5,
+                    "y": 0.5,
+                    "z": 0.5
+                  },
+                  "visible": true,
+                  "tags": [
+                    "model",
+                    "renderable"
+                  ],
+                  "children": [
+                    {
+                      "id": "adf5b8c2-b556-498b-b331-1319aa46e5c5",
+                      "name": "左眼",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": -0.15,
+                        "y": 0.1,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "SphereGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 0,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    },
+                    {
+                      "id": "35af4b70-6251-4d18-8473-a96812b76358",
+                      "name": "右眼",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0.15,
+                        "y": 0.1,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "SphereGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 0,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    },
+                    {
+                      "id": "5c080202-587a-4703-9dcb-435db83bd746",
+                      "name": "嘴巴",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.15,
+                        "z": 0.3
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "BoxGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 16711680,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": [],
+                  "modelPath": ""
+                },
+                {
+                  "id": "095b84f6-b1b6-4130-8405-17f7220e15ec",
+                  "name": "左臂关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": -0.5,
+                    "y": 0.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "76bd60ad-a54b-4bf8-a35b-97c9f38ad4ee",
+                      "name": "左臂",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3368703,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "8a853ddd-2325-4c5a-b45b-c315c5d74aa7",
+                  "name": "右臂关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": 0.5,
+                    "y": 0.3,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "98873bfd-dcfa-4313-8326-bd42e1b48e1a",
+                      "name": "右臂",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3368703,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "1c15c82a-0347-4d47-8cc4-a848c8901b6c",
+                  "name": "左腿关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": -0.3,
+                    "y": -0.8,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "f31e5c20-d662-4cf6-ac77-25e48eaee062",
+                      "name": "左腿",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.5,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3394611,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                },
+                {
+                  "id": "f71cd44f-bd96-4304-a600-170bcb2ec60f",
+                  "name": "右腿关节",
+                  "type": "Node3d",
+                  "position": {
+                    "x": 0.3,
+                    "y": -0.8,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [
+                    {
+                      "id": "1e76fee8-758e-4880-a380-ff08dba026a3",
+                      "name": "右腿",
+                      "type": "MeshInstance3D",
+                      "position": {
+                        "x": 0,
+                        "y": -0.5,
+                        "z": 0
+                      },
+                      "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                      },
+                      "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                      },
+                      "visible": true,
+                      "tags": [
+                        "mesh",
+                        "renderable"
+                      ],
+                      "children": [],
+                      "scripts": [],
+                      "geometry": {
+                        "type": "CylinderGeometry"
+                      },
+                      "material": {
+                        "type": "MeshStandardMaterial",
+                        "color": 3394611,
+                        "transparent": false,
+                        "opacity": 1
+                      },
+                      "instancing": {
+                        "enabled": false,
+                        "count": 1
+                      }
+                    }
+                  ],
+                  "scripts": []
+                }
+              ],
+              "scripts": []
+            }
+          ],
+          "scripts": []
+        }
+      }
+    }
+  }
+}

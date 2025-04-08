@@ -35,6 +35,7 @@ export class ModelLoader3D extends Node3d {
     this.loader = new GLTFLoader();
     if (modelPath) {
       this.loadModel(modelPath);
+      this.setModelPath(modelPath);
     }
   }
 

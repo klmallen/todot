@@ -3,10 +3,11 @@ import { Script } from "./Script/Script";
 import { v4 as uuidv4 } from "uuid";
 import { editable } from "./decorators";
 import Engine from "./Engine";
+import { ScriptRegistry } from "./Script/ScriptRegistry";
 
 export class Node3d {
-  private id: string;
-  private name: string;
+  private _id: string;
+  private _name: string;
   private threeObject: THREE.Object3D;
   @editable({
     displayName: "脚本",
@@ -14,8 +15,8 @@ export class Node3d {
     type: "Script[]",
     group: "General",
   })
-  private scripts: Script[] = [];
-  private children: Node3d[] = [];
+  private _scripts: Script[] = [];
+  private _children: Node3d[] = [];
   private parent: Node3d | null = null;
   private type: string = "Node3d";
   @editable({
@@ -24,7 +25,7 @@ export class Node3d {
     type: "string[]",
     group: "General",
   })
-  private tags: Set<string> = new Set();
+  private _tags: Set<string> = new Set();
   private events: Map<string, Function[]> = new Map();
   private isInScene: boolean = false; // 标记节点是否在场景中
   private isReady: boolean = false; // 标记节点是否已经准备好了
@@ -52,8 +53,8 @@ export class Node3d {
     name: string,
     options?: { position?: THREE.Vector3; rotation?: THREE.Euler }
   ) {
-    this.id = uuidv4();
-    this.name = name;
+    this._id = uuidv4();
+    this._name = name;
     this.threeObject = new THREE.Object3D();
     this.threeObject.name = name;
     if (options) {
@@ -110,22 +111,22 @@ export class Node3d {
 
   // 添加标签
   public addTag(tag: string): void {
-    this.tags.add(tag);
+    this._tags.add(tag);
   }
 
   // 移除标签
   public removeTag(tag: string): void {
-    this.tags.delete(tag);
+    this._tags.delete(tag);
   }
 
   // 检查是否包含标签
   public hasTag(tag: string): boolean {
-    return this.tags.has(tag);
+    return this._tags.has(tag);
   }
 
   // 获取所有标签
   public getTags(): string[] {
-    return Array.from(this.tags);
+    return Array.from(this._tags);
   }
 
   public getThreeObject(): THREE.Object3D {
@@ -136,15 +137,15 @@ export class Node3d {
     if (node.parent) {
       node.parent.removeChild(node);
     }
-    this.children.push(node);
+    this._children.push(node);
     node.parent = this;
     this.threeObject.add(node.threeObject);
   }
 
   public removeChild(node: Node3d): void {
-    const index = this.children.indexOf(node);
+    const index = this._children.indexOf(node);
     if (index !== -1) {
-      this.children.splice(index, 1);
+      this._children.splice(index, 1);
       node.parent = null;
       this.threeObject.remove(node.threeObject);
     }
@@ -152,14 +153,14 @@ export class Node3d {
 
   public update(deltaTime: number): void {
     // 更新该节点上的所有脚本
-    this.scripts.forEach((script) => {
+    this._scripts.forEach((script) => {
       if (script.isEnabled()) {
         script.update(deltaTime);
       }
     });
 
     // 递归更新子节点
-    this.children.forEach((child) => {
+    this._children.forEach((child) => {
       child.update(deltaTime);
     });
 
@@ -173,15 +174,15 @@ export class Node3d {
   }
 
   public getId(): string {
-    return this.id;
+    return this._id;
   }
 
   public getName(): string {
-    return this.name;
+    return this._name;
   }
 
   public setName(name: string): void {
-    this.name = name;
+    this._name = name;
     this.threeObject.name = name;
   }
 
@@ -190,7 +191,7 @@ export class Node3d {
   }
 
   public getChildren(): Node3d[] {
-    return [...this.children];
+    return [...this._children];
   }
 
   // 提供位置、旋转和缩放的快捷方法
@@ -212,7 +213,7 @@ export class Node3d {
     params?: any
   ): T {
     const script = new scriptClass(params);
-    this.scripts.push(script);
+    this._scripts.push(script);
     script.onAttach(this);
     return script;
   }
@@ -221,29 +222,29 @@ export class Node3d {
   public getScript<T extends Script>(
     scriptClass: new (...args: any[]) => T
   ): T | undefined {
-    return this.scripts.find((script) => script instanceof scriptClass) as
+    return this._scripts.find((script) => script instanceof scriptClass) as
       | T
       | undefined;
   }
 
   // 通过脚本ID获取脚本
   public getScriptById(id: string): Script | undefined {
-    return this.scripts.find((script) => script.getId() === id);
+    return this._scripts.find((script) => script.getId() === id);
   }
 
   // 获取特定类型的所有脚本
   public getScriptsByType<T extends Script>(type: {
     new (...args: any[]): T;
   }): T[] {
-    return this.scripts.filter((script) => script instanceof type) as T[];
+    return this._scripts.filter((script) => script instanceof type) as T[];
   }
 
   // 移除脚本
   public removeScript(script: Script): void {
-    const index = this.scripts.indexOf(script);
+    const index = this._scripts.indexOf(script);
     if (index !== -1) {
       script.onDetach();
-      this.scripts.splice(index, 1);
+      this._scripts.splice(index, 1);
     }
   }
 
@@ -259,7 +260,7 @@ export class Node3d {
 
   // 获取所有脚本
   public getAllScripts(): Script[] {
-    return [...this.scripts];
+    return [...this._scripts];
   }
 
   /**
@@ -320,8 +321,8 @@ export class Node3d {
     const editableProps = this.getEditableProperties();
 
     return {
-      id: this.id,
-      name: this.name,
+      id: this._id,
+      name: this._name,
       type: this.type || this.constructor.name,
       expanded: false,
 
@@ -343,7 +344,7 @@ export class Node3d {
         },
       },
 
-      scripts: this.scripts.map((script) => ({
+      scripts: this._scripts.map((script) => ({
         id: script.getId(),
         type: script.constructor.name,
         enabled: script.isEnabled(),
@@ -352,9 +353,9 @@ export class Node3d {
           : {},
       })),
 
-      children: this.children.map((child) => child.getId()),
+      children: this._children.map((child) => child.getId()),
       visible: this.threeObject.visible,
-      tags: Array.from(this.tags || []),
+      tags: Array.from(this._tags || []),
       metadata: metadata,
       properties: editableProps,
     };
@@ -362,18 +363,18 @@ export class Node3d {
 
   // 根据名称查找子节点（直接子节点）
   public getChildByName(name: string): Node3d | undefined {
-    return this.children.find((child) => child.getName() === name);
+    return this._children.find((child) => child.getName() === name);
   }
 
   // 根据ID查找子节点（直接子节点）
   public getChildById(id: string): Node3d | undefined {
-    return this.children.find((child) => child.getId() === id);
+    return this._children.find((child) => child.getId() === id);
   }
 
   // 根据索引获取子节点
   public getChildAt(index: number): Node3d | undefined {
-    if (index >= 0 && index < this.children.length) {
-      return this.children[index];
+    if (index >= 0 && index < this._children.length) {
+      return this._children[index];
     }
     return undefined;
   }
@@ -404,7 +405,7 @@ export class Node3d {
     }
 
     // 递归检查子树
-    for (const child of this.children) {
+    for (const child of this._children) {
       const found = child.findNodeByName(name);
       if (found) {
         return found;
@@ -428,7 +429,7 @@ export class Node3d {
     }
 
     // 递归检查子树
-    for (const child of this.children) {
+    for (const child of this._children) {
       const found = child.findNodeById(id);
       if (found) {
         return found;
@@ -464,7 +465,7 @@ export class Node3d {
     }
 
     // 递归检查所有子节点
-    for (const child of this.children) {
+    for (const child of this._children) {
       result.push(...child.findNodesByTag(tag));
     }
 
@@ -480,7 +481,7 @@ export class Node3d {
     this.hasStarted = true;
 
     // 执行所有脚本的 onStart 方法
-    this.scripts.forEach((script) => {
+    this._scripts.forEach((script) => {
         console.log(script,'script')
       if (script.isEnabled() && typeof script.onStart === "function") {
         script.onStart();
@@ -488,7 +489,7 @@ export class Node3d {
     });
 
     // 递归通知所有子节点
-    this.children.forEach((child) => {
+    this._children.forEach((child) => {
       child.onStart();
     });
   }
@@ -505,14 +506,14 @@ export class Node3d {
     }
 
     // 执行所有脚本的 onEnterScene 方法
-    this.scripts.forEach((script) => {
+    this._scripts.forEach((script) => {
       if (script.isEnabled() && typeof script.onEnterScene === "function") {
         script.onEnterScene();
       }
     });
 
     // 递归通知所有子节点
-    this.children.forEach((child) => {
+    this._children.forEach((child) => {
       child.onEnterScene();
     });
   }
@@ -524,14 +525,14 @@ export class Node3d {
     this.isInScene = false;
 
     // 执行所有脚本的 onExitScene 方法
-    this.scripts.forEach((script) => {
+    this._scripts.forEach((script) => {
       if (script.isEnabled() && typeof script.onExitScene === "function") {
         script?.onExitScene();
       }
     });
 
     // 递归通知所有子节点
-    this.children.forEach((child) => {
+    this._children.forEach((child) => {
       child.onExitScene();
     });
   }
@@ -543,14 +544,14 @@ export class Node3d {
     this.isReady = true;
 
     // 执行所有脚本的 onReady 方法
-    this.scripts.forEach((script) => {
+    this._scripts.forEach((script) => {
       if (script.isEnabled() && typeof script.onReady === "function") {
         script.onReady();
       }
     });
 
     // 递归通知所有子节点
-    this.children.forEach((child) => {
+    this._children.forEach((child) => {
       child.onReady();
     });
   }
@@ -573,7 +574,7 @@ export class Node3d {
   // 重置启动状态（场景重新加载时可能需要）
   public resetStarted(): void {
     this.hasStarted = false;
-    this.children.forEach((child) => {
+    this._children.forEach((child) => {
       child.resetStarted();
     });
   }
@@ -778,7 +779,7 @@ export class Node3d {
    * @returns 分离的子节点数组
    */
   public detachChildren(): Node3d[] {
-    const detachedChildren = [...this.children];
+    const detachedChildren = [...this._children];
     detachedChildren.forEach((child) => this.removeChild(child));
     return detachedChildren;
   }
@@ -790,7 +791,7 @@ export class Node3d {
    * @returns 是否替换成功
    */
   public replaceChild(oldChild: Node3d, newChild: Node3d): boolean {
-    const index = this.children.indexOf(oldChild);
+    const index = this._children.indexOf(oldChild);
     if (index !== -1) {
       // 移除旧节点
       this.removeChild(oldChild);
@@ -801,7 +802,7 @@ export class Node3d {
       }
 
       // 在相同的索引位置插入新节点
-      this.children.splice(index, 0, newChild);
+      this._children.splice(index, 0, newChild);
       newChild.parent = this;
       this.threeObject.add(newChild.threeObject);
       return true;
@@ -814,7 +815,7 @@ export class Node3d {
    * @returns 新创建的节点副本
    */
   public clone(): Node3d {
-    const clone = new Node3d(this.name);
+    const clone = new Node3d(this._name);
 
     // 复制变换
     clone.position = this.position.clone();
@@ -838,7 +839,7 @@ export class Node3d {
     const clone = this.clone();
 
     // 递归复制所有子节点
-    this.children.forEach((child) => {
+    this._children.forEach((child) => {
       const childClone = child.deepClone();
       clone.addChild(childClone);
     });
@@ -859,7 +860,7 @@ export class Node3d {
       callback(this);
     }
 
-    this.children.forEach((child) => {
+    this._children.forEach((child) => {
       child.traverse(callback, true);
     });
   }
@@ -873,14 +874,14 @@ export class Node3d {
     callback: (node: Node3d) => void,
     includeThis: boolean = true
   ): void {
-    const queue: Node3d[] = includeThis ? [this] : [...this.children];
+    const queue: Node3d[] = includeThis ? [this] : [...this._children];
 
     while (queue.length > 0) {
       const node = queue.shift()!;
       callback(node);
 
       // 将子节点添加到队列末尾
-      queue.push(...node.children);
+      queue.push(...node._children);
     }
   }
 
@@ -890,10 +891,10 @@ export class Node3d {
    */
   public getPath(): string {
     if (!this.parent) {
-      return this.name;
+      return this._name;
     }
 
-    return `${this.parent.getPath()}/${this.name}`;
+    return `${this.parent.getPath()}/${this._name}`;
   }
 
   /**
@@ -912,8 +913,8 @@ export class Node3d {
   /**
    * 获取可见性状态
    */
-  isVisible(): boolean {
-    return this.getThreeObject().visible;
+  public get isVisible(): boolean {
+    return this.threeObject.visible;
   }
   /**
    * 是否为指定节点的后代
@@ -970,8 +971,8 @@ export class Node3d {
  */
 public toJSON(): any {
   return {
-    id: this.id,
-    name: this.name,
+    id: this._id,
+    name: this._name,
     type: this.type,
     position: {
       x: this.threeObject.position.x,
@@ -989,15 +990,37 @@ public toJSON(): any {
       z: this.threeObject.scale.z
     },
     visible: this.threeObject.visible,
-    tags: Array.from(this.tags),
-    children: this.children.map(child => child.toJSON()),
-    scripts: this.scripts.map(script => ({
+    tags: Array.from(this._tags),
+    children: this._children.map(child => child.toJSON()),
+    scripts: this._scripts.map(script => ({
       type: script.constructor.name,
+      path: this.getScriptPath(script),
       id: script.getId(),
       enabled: script.isEnabled(),
       properties: script.getEditableProperties ? script.getEditableProperties() : {}
     }))
   };
+}
+
+/**
+ * 获取脚本的引用路径
+ * @param script 脚本实例
+ * @returns 脚本的引用路径
+ * @private
+ */
+private getScriptPath(script: Script): string {
+  // 获取脚本的构造函数名称
+  const scriptName = script.constructor.name;
+  
+  // 首先尝试从ScriptRegistry获取路径
+  const registeredPath = ScriptRegistry.getScriptPath(scriptName);
+  if (registeredPath) {
+    return registeredPath;
+  }
+  
+  // 如果没有注册路径，生成一个默认路径
+  // 在实际应用中，建议始终使用ScriptRegistry注册脚本及其路径
+  return `./engine/core/Script/${scriptName}`;
 }
   /**
    * 获取节点所在的场景
@@ -1026,5 +1049,42 @@ public toJSON(): any {
       console.error("获取场景失败:", error);
       return undefined;
     }
+  }
+
+  // 添加 getter/setter 方法
+  get id(): string {
+    return this._id;
+  }
+
+  set id(value: string) {
+    this._id = value;
+  }
+
+  get name(): string {
+    return this._name;
+  }
+
+  set name(value: string) {
+    this._name = value;
+  }
+
+  get tags(): string[] {
+    return Array.from(this._tags);
+  }
+
+  get children(): Node3d[] {
+    return this._children;
+  }
+
+  get scripts(): Script[] {
+    return this._scripts;
+  }
+
+  get isVisible(): boolean {
+    return this.threeObject.visible;
+  }
+
+  set isVisible(value: boolean) {
+    this.threeObject.visible = value;
   }
 }
