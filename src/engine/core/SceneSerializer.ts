@@ -55,7 +55,6 @@ export class SceneSerializer {
    * @returns 新的场景实例
    */
   public static deserializeScene(jsonStr: string): Scene {
-    debugger
     const sceneData =JSON.parse(jsonStr)
     
     // 创建新场景

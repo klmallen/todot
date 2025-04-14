@@ -7,7 +7,6 @@ import { GameObject } from './GameObject';
 import { Script } from './Script/Script';
 import * as THREE  from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { WebGPURenderer } from 'three/webgpu';
 import { Node3d } from './Node3d';
 import { SceneSerializer } from './SceneSerializer';
 
@@ -15,7 +14,7 @@ export default class Engine {
   private static instance: Engine | null = null;
   
   private clock: Clock;
-  private renderer: any;
+  private renderer: THREE.WebGLRenderer;
   private physics: IPhysics | null;
   private threeScene: THREE.Scene;  // 引擎唯一的THREE场景
   private scenes: Map<string, Scene> = new Map();  // 场景管理器
@@ -25,6 +24,8 @@ export default class Engine {
   private canvas: HTMLCanvasElement;
   private boundOnWindowResize: () => void;
   private activeScenes: Set<string> = new Set();  // 存储激活的场景名称
+  private showBoundingBoxes: boolean = false;
+  private boundingBoxHelpers: Map<THREE.Object3D, THREE.BoxHelper> = new Map();
 
   constructor(canvas?: HTMLCanvasElement, physics: IPhysics | null = null) {
     // 确保单例实现
@@ -53,34 +54,24 @@ export default class Engine {
   }
 
   private async initRenderer(useWebGPU: boolean): Promise<void> {
-    if (useWebGPU) {
-      // 创建 WebGPU 渲染器
-      this.renderer = new WebGPURenderer({
-        canvas: this.canvas,
-        antialias: true,
-        alpha: true
-      });
-    } else {
-      // 创建 WebGL 渲染器
-      this.renderer = new THREE.WebGLRenderer({
-        canvas: this.canvas,
-        antialias: true,
-        alpha: true
-      });
-    }
-    
-    // 等待渲染器初始化
-    await this.renderer.init();
+    // 创建 WebGL 渲染器
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true,
+      alpha: true
+    });
     
     // 设置渲染器的基本属性
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     
     // 如果没有提供canvas，将渲染器的canvas添加到文档中
     if (!this.canvas.parentElement) {
       document.body.appendChild(this.renderer.domElement);
     }
+    
     // 移除可能存在的旧监听器
     window.removeEventListener('resize', this.boundOnWindowResize);
     // 添加窗口大小变化的监听
@@ -169,10 +160,12 @@ export default class Engine {
       scene.update(deltaTime);
     });
     
-    // 使用 WebGPU 渲染器进行渲染
+    // 使用 WebGL 渲染器进行渲染
     this.renderer.render(this.threeScene, this.camera.getThreeCamera());
     
-    // 
+    // 更新包围盒辅助器
+    this.updateBoundingBoxHelpers();
+    
     requestAnimationFrame(() => this.update());
   }
 
@@ -188,28 +181,38 @@ export default class Engine {
     }
   }
 
-  // 获取渲染器的方法现在返回 WebGPURenderer
-  public getRenderer(): WebGPURenderer {
+  // 获取渲染器的方法现在返回 WebGLRenderer
+  public getRenderer(): THREE.WebGLRenderer {
     return this.renderer;
   }
 
   // 修改 dispose 方法确保正确清理事件监听器
   public dispose(): void {
-    window.removeEventListener('resize', this.boundOnWindowResize);
-    if (this.orbitControls) {
-      this.orbitControls.dispose();
-    }
+    // 停止动画循环
+    this.clock.stop();
     
-    // 清理所有UI组件上的事件监听器
-    this.uiComponents.forEach((component) => {
-      const clone = component.cloneNode(true);
-      if (component.parentNode) {
-        component.parentNode.replaceChild(clone, component);
+    // 清理渲染器
+    this.renderer.dispose();
+    
+    // 移除事件监听
+    window.removeEventListener('resize', this.boundOnWindowResize);
+    
+    // 清理场景
+    this.scenes.forEach(scene => {
+      scene.dispose();
+    });
+    this.scenes.clear();
+    
+    // 清理 UI 组件
+    this.uiComponents.forEach(component => {
+      if (component.parentElement) {
+        component.parentElement.removeChild(component);
       }
     });
+    this.uiComponents.clear();
     
-    this.renderer.dispose();
-    // 清理其他资源...
+    // 重置实例
+    Engine.instance = null;
   }
 
   public setScene(scene: Scene): void {
@@ -237,10 +240,11 @@ export default class Engine {
     showDefaultUI?: boolean,
     showHelpers?: boolean,
     addDefaultLights?: boolean,
-    useWebGPU?: boolean // 新增选项
+    useWebGPU?: boolean, // 新增选项
+    showBoundingBoxes?: boolean, // 新增选项
   } = {}) {
     // 核心引擎初始化
-    const useWebGPU = options.useWebGPU ?? true; 
+    const useWebGPU = options.useWebGPU ?? false; 
     // 初始化渲染器，确保在init阶段就创建渲染器
     await this.initRenderer(useWebGPU).catch(error => {
       console.error('渲染器初始化失败:', error);
@@ -251,7 +255,9 @@ export default class Engine {
     if (options.addDefaultLights) {
       this.setupDefaultLights();
     }
-
+    if (options.showBoundingBoxes) {
+      this.setShowBoundingBoxes(true);
+    }
     // 添加辅助工具
     if (options.showHelpers) {
       this.setupHelpers();
@@ -682,5 +688,85 @@ export default class Engine {
   private parseNodes(scene: Scene, nodes: any[]): void {
     // 实现节点数据解析和重建逻辑
     // 这个函数需要根据你的节点结构进行实现
+  }
+
+  /**
+   * 设置是否显示所有物体的包围盒
+   * @param show 是否显示
+   */
+  public setShowBoundingBoxes(show: boolean): void {
+    this.showBoundingBoxes = show;
+    
+    if (show) {
+      this.createBoundingBoxHelpers();
+    } else {
+      this.removeBoundingBoxHelpers();
+    }
+  }
+  
+  /**
+   * 为所有场景中的对象创建包围盒辅助器
+   */
+  private createBoundingBoxHelpers(): void {
+    // 先清除现有的包围盒辅助器
+    this.removeBoundingBoxHelpers();
+    // 为每个场景中的每个对象创建包围盒辅助器
+    console.log(this.getAllScenes(),'getAllScenes')
+    this.getAllScenes().forEach(scene => {
+      scene.getAllNodes().forEach(node => {
+        const obj = node.getThreeObject();
+        if (obj && obj.visible) {
+          // 创建包围盒辅助器
+          const boxHelper = new THREE.BoxHelper(obj, 0xffff00);
+          this.boundingBoxHelpers.set(obj, boxHelper);
+          // 添加到场景
+          scene.threeScene.add(boxHelper);
+        }
+      });
+    });
+  }
+  
+  /**
+   * 移除所有包围盒辅助器
+   */
+  private removeBoundingBoxHelpers(): void {
+    // 从场景中移除所有包围盒辅助器
+    this.boundingBoxHelpers.forEach((helper, obj) => {
+      const scene = this.findSceneByObject(obj);
+      if (scene) {
+        scene.getThreeScene().remove(helper);
+      }
+    });
+    
+    // 清空映射
+    this.boundingBoxHelpers.clear();
+  }
+  
+  /**
+   * 更新所有包围盒辅助器
+   * 在每帧调用
+   */
+  public updateBoundingBoxHelpers(): void {
+    if (!this.showBoundingBoxes) return;
+    
+    this.boundingBoxHelpers.forEach((helper, obj) => {
+      helper.update();
+    });
+  }
+  
+  /**
+   * 根据对象查找其所在的场景
+   * @param obj 要查找的对象
+   * @returns 包含该对象的场景，如果未找到则返回null
+   */
+  private findSceneByObject(obj: THREE.Object3D): Scene | null {
+    for (const scene of this.getAllScenes()) {
+      for (const node of scene.getAllNodes()) {
+        if (node.getThreeObject() === obj) {
+          return scene;
+        }
+      }
+    }
+    return null;
   }
 }

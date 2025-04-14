@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Node3d } from './Node3d';
 import { EventEmitter } from '../utils/EventEmitter';
 import { Alert } from '@mui/material';
+import { Camera } from './Camera';
 
 /**
  * 场景类 - 管理节点树，提供节点管理和更新功能
@@ -14,6 +15,7 @@ export class Scene {
   private nodesMap: Map<string, Node3d> = new Map();
   private nodesList: Node3d[] = [];
   private events: EventEmitter = new EventEmitter();
+  private camera: Camera;
 
   /**
    * 构造函数
@@ -23,6 +25,7 @@ export class Scene {
     this.name = name;
     this.threeScene = new THREE.Scene();
     this.rootNode = new Node3d('根节点');
+    this.camera = new Camera();
     this.threeScene.add(this.rootNode.getThreeObject());
     
     // 注册根节点
@@ -60,11 +63,21 @@ export class Scene {
   }
 
   /**
+   * 获取场景的相机
+   */
+  getCamera(): Camera {
+    return this.camera;
+  }
+
+  /**
    * 添加节点到场景
    * @param node 要添加的节点
    */
   addNode(node: Node3d): void {
     this.rootNode.addChild(node);
+    if (node.getThreeObject()) {
+      this.threeScene.add(node.getThreeObject()!);
+    }
     this.registerNode(node);
     
     // 调用节点的 onReady 生命周期方法
@@ -96,6 +109,10 @@ export class Scene {
       parent.removeChild(node);
       this.unregisterNode(node);
       this.events.emit('nodeRemoved', node);
+    }
+
+    if (node.getThreeObject()) {
+      this.threeScene.remove(node.getThreeObject()!);
     }
   }
 
@@ -242,5 +259,48 @@ export class Scene {
       active: this.active,
       rootNode: this.rootNode.toJSON()
     };
+  }
+
+  /**
+   * 添加对象到场景
+   * @param threeObject THREE对象
+   */
+  public add(threeObject: THREE.Object3D): void {
+    this.threeScene.add(threeObject);
+  }
+
+  /**
+   * 从场景移除对象
+   * @param threeObject THREE对象
+   */
+  public remove(threeObject: THREE.Object3D): void {
+    this.threeScene.remove(threeObject);
+  }
+
+  /**
+   * 清理场景
+   */
+  public dispose(): void {
+    // 清理场景中的所有对象
+    while (this.threeScene.children.length > 0) {
+      const object = this.threeScene.children[0];
+      this.threeScene.remove(object);
+      
+      if (object instanceof THREE.Mesh) {
+        if (object.geometry) {
+          object.geometry.dispose();
+        }
+        if (object.material) {
+          if (Array.isArray(object.material)) {
+            object.material.forEach(material => material.dispose());
+          } else {
+            object.material.dispose();
+          }
+        }
+      }
+    }
+    
+    // 清理根节点
+    this.rootNode.dispose();
   }
 }

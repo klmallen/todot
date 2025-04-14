@@ -1,0 +1,125 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+这是物理引擎的文档 请参考这个
+cannon-es 是一个轻量级且易于使用的 Web 3D 物理引擎。 它的灵感来自three.js的简单 API，并基于 ammo.js 和 Bullet 物理引擎。
+
+首先要设置的是我们的物理世界，它将包含我们所有的物理物体并推进模拟。
+
+让我们创建一个具有地球引力的世界。请注意，cannon.js 使用 SI 单位（米、千克、秒等）。
+
+const world = new CANNON.World({
+  gravity: new CANNON.Vec3(0, -9.82, 0), // m/s²
+})
+为了进一步进行模拟，我们必须每帧调用 world.fixedStep（）。 作为第一个参数，我们可以传递我们希望模拟运行的固定时间步长，默认值为 。world.fixedStep（） 会跟踪上次调用它的时间，以保持模拟以相同的速度，而与帧速率无关，因为调用在不同设备上可能会有所不同，或者如果存在性能问题。在此处阅读有关固定仿真步进的更多信息。1 / 6060fpsrequestAnimationFrame
+
+function animate() {
+  requestAnimationFrame(animate)
+
+  // Run the simulation independently of framerate every 1 / 60 ms
+  world.fixedStep()
+}
+// Start the simulation loop
+animate()
+如果你想手动打发自上次调用以来的时间（在游戏世界中），你可以使用更高级的 world.step（）。dt
+
+请参阅高级世界步进示例
+刚体是将在世界中模拟的实体，它们可以是简单的形状，如球体、箱体、平面、圆柱体，也可以是更复杂的形状，如凸面多面体、粒子、高度场、三网格。
+
+让我们创建一个基本的球体。
+
+const radius = 1 // m
+const sphereBody = new CANNON.Body({
+  mass: 5, // kg
+  shape: new CANNON.Sphere(radius),
+})
+sphereBody.position.set(0, 10, 0) // m
+world.addBody(sphereBody)
+正如你所看到的，我们指定了一个 mass 属性，质量定义了物体在受到力影响时的行为。
+
+当实体具有质量并受力影响时，它们称为动态实体。还有一些运动学物体，它们不受力的影响，但可以具有速度并四处移动。第三种类型的物体是静态物体，它们只能放置在世界中，不受力或速度的影响。
+
+如果将质量 0 传递给实体，则该实体将自动标记为静态实体。您还可以在 body 选项中显式定义 body 类型。例如，让我们创建一个静态 Ground。
+
+const groundBody = new CANNON.Body({
+  type: CANNON.Body.STATIC,
+  shape: new CANNON.Plane(),
+})
+groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0) // make it face up
+world.addBody(groundBody)
+以下是前面的所有代码段组合在一个完整的工作示例中。
+
+import * as CANNON from 'cannon-es'
+
+// Setup our physics world
+const world = new CANNON.World({
+  gravity: new CANNON.Vec3(0, -9.82, 0), // m/s²
+})
+
+// Create a sphere body
+const radius = 1 // m
+const sphereBody = new CANNON.Body({
+  mass: 5, // kg
+  shape: new CANNON.Sphere(radius),
+})
+sphereBody.position.set(0, 10, 0) // m
+world.addBody(sphereBody)
+
+// Create a static plane for the ground
+const groundBody = new CANNON.Body({
+  type: CANNON.Body.STATIC, // can also be achieved by setting the mass to 0
+  shape: new CANNON.Plane(),
+})
+groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0) // make it face up
+world.addBody(groundBody)
+
+// Start the simulation loop
+function animate() {
+  requestAnimationFrame(animate)
+
+  world.fixedStep()
+
+  // the sphere y position shows the sphere falling
+  console.log(`Sphere y position: ${sphereBody.position.y}`)
+}
+animate()
+Note that cannon doesn't take care of rendering anything to the screen, it just computes the math of the simulation. To actually show something to the screen you have to use rendering libraries such as three.js. Let's see how we can achieve that.
+
+First of all, you have to create the body's correspondent entity in three.js. For example here is how you create a sphere in three.js.
+
+const radius = 1 // m
+const geometry = new THREE.SphereGeometry(radius)
+const material = new THREE.MeshNormalMaterial()
+const sphereMesh = new THREE.Mesh(geometry, material)
+scene.add(sphereMesh)
+然后，您必须将 three.js 网格与cannon.js体连接起来。为此，在步进世界后，每帧将位置和旋转数据从身体复制到网格。
+
+function animate() {
+  requestAnimationFrame(animate)
+
+  // world stepping...
+
+  sphereMesh.position.copy(sphereBody.position)
+  sphereMesh.quaternion.copy(sphereBody.quaternion)
+
+  // three.js render...
+}
+animate()
+您现在应该在屏幕上看到一个下落的球！查看基本 three.js 示例，了解完整代码。
+
+这就是基本示例，要了解有关所有不同功能的更多信息，请前往示例页面！
+
+支持的形状碰撞对
+请注意，并非所有形状都可以相互碰撞，因为某些碰撞算法未实现。下表显示了当前可以相互碰撞的形状：
+
+球	飞机	箱	凸	粒子	高度场	三网
+球	是的	是的	是的	是的	是的	是的	是的
+飞机	-	-	是的	是的	是的	-	是的
+箱	-	-	是的	是的	是的	是的	（待办事项）
+圆柱体	-	-	是的	是的	是的	是的	（待办事项）
+凸	-	-	-	是的	是的	是的	（待办事项）
+粒子	-	-	-	-	-	（待办事项）	（待办事项）
+高度场	-	-	-	-	-	-	（待办事项）
+三网	-	-	-	-	-	-	-   
