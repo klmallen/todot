@@ -1,7 +1,6 @@
 import { IRenderer } from './IRenderer';
 import * as THREE from 'three';
-import { WebGPURenderer as ThreeWebGPURenderer } from 'three/addons/renderers/WebGPURenderer.js';
-
+import { WebGPURenderer as ThreeWebGPURendere } from 'three/webgpu';
 export class WebGPURenderer implements IRenderer {
     private renderer: ThreeWebGPURenderer;
     private initialized: boolean = false;

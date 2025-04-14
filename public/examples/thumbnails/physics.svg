@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="300" height="200" fill="#333"/>
+  <rect x="50" y="150" width="200" height="10" fill="#555"/>
+  <rect x="70" y="80" width="40" height="40" fill="#e74c3c" transform="rotate(15, 90, 100)"/>
+  <circle cx="150" cy="100" r="30" fill="#3498db"/>
+  <polygon points="200,70 230,120 170,120" fill="#2ecc71"/>
+  <text x="150" y="180" font-family="Arial" font-size="16" fill="white" text-anchor="middle">物理系统示例</text>
+</svg>

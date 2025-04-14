@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="300" height="200" fill="#333"/>
+  <rect x="50" y="150" width="200" height="10" fill="#555"/>
+  <rect x="130" y="80" width="40" height="40" fill="#f1c40f"/>
+  <line x1="100" y1="100" x2="200" y2="100" stroke="#e74c3c" stroke-width="3" stroke-dasharray="5,5"/>
+  <circle cx="100" cy="100" r="10" fill="#3498db"/>
+  <circle cx="200" cy="100" r="10" fill="#2ecc71"/>
+  <path d="M 120,50 L 140,60 L 160,50 L 180,60" stroke="#9b59b6" stroke-width="3" fill="none"/>
+  <text x="150" y="180" font-family="Arial" font-size="16" fill="white" text-anchor="middle">输入系统示例</text>
+</svg>

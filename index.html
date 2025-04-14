@@ -17,13 +17,13 @@
       background-color: #1e1e1e;
       color: #e0e0e0;
     }
-    
+
     .editor-container {
       display: flex;
       flex-direction: column;
       height: 100%;
     }
-    
+
     .header {
       height: 40px;
       background-color: #333;
@@ -32,18 +32,18 @@
       padding: 0 10px;
       border-bottom: 1px solid #444;
     }
-    
+
     .logo {
       font-size: 18px;
       font-weight: bold;
       margin-right: 20px;
     }
-    
+
     .toolbar {
       display: flex;
       align-items: center;
     }
-    
+
     .toolbar-button {
       background-color: #555;
       border: none;
@@ -53,11 +53,11 @@
       border-radius: 3px;
       cursor: pointer;
     }
-    
+
     .toolbar-button:hover {
       background-color: #666;
     }
-    
+
     .left-panel {
       display: flex;
       flex-direction: column;
@@ -65,11 +65,11 @@
       background-color: #252525;
       border-right: 1px solid #444;
     }
-    
+
     .panel-section {
       margin-bottom: 10px;
     }
-    
+
     .panel-header {
       height: 30px;
       background-color: #333;
@@ -79,29 +79,29 @@
       font-weight: bold;
       border-bottom: 1px solid #444;
     }
-    
+
     .panel-content {
       padding: 10px;
       overflow-y: auto;
     }
-    
+
     #scene-tree {
       flex: 1;
       padding: 10px;
       overflow-y: auto;
     }
-    
+
     .viewport {
       flex: 1;
       position: relative;
       overflow: hidden;
     }
-    
+
     #scene-canvas {
       width: 100%;
       height: 100%;
     }
-    
+
     .viewport-overlay {
       position: absolute;
       top: 0;
@@ -112,12 +112,12 @@
       justify-content: center;
       align-items: center;
     }
-    
+
     .transform-gizmo-controls {
       display: flex;
       align-items: center;
     }
-    
+
     .gizmo-btn {
       background-color: #555;
       border: none;
@@ -127,22 +127,22 @@
       border-radius: 3px;
       cursor: pointer;
     }
-    
+
     .gizmo-btn.active {
       background-color: #666;
     }
-    
+
     .right-panel {
       width: 300px;
       background-color: #252525;
       border-left: 1px solid #444;
     }
-    
+
     #properties-panel {
       padding: 10px;
       overflow-y: auto;
     }
-    
+
     .status-bar {
       height: 25px;
       background-color: #333;
@@ -152,11 +152,11 @@
       border-top: 1px solid #444;
       font-size: 12px;
     }
-    
+
     .spacer {
       flex: 1;
     }
-    
+
     #scene-tree-context-menu {
       position: absolute;
       background-color: #333;
@@ -168,16 +168,16 @@
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
       display: none;
     }
-    
+
     .context-menu-item {
       padding: 5px 10px;
       cursor: pointer;
     }
-    
+
     .context-menu-item:hover {
       background-color: #444;
     }
-    
+
     .context-menu-divider {
       height: 1px;
       background-color: #555;
@@ -187,8 +187,22 @@
 </head>
 <body>
   <div id="root">
-    <div onclick="alert('你点击了这个div!')">123</div>
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #1e1e1e; color: white;">
+      <h1 style="font-size: 2.5rem; margin-bottom: 2rem;">欢迎使用 3D 引擎</h1>
+      <p style="font-size: 1.2rem; margin-bottom: 2rem; max-width: 600px; text-align: center;">这是一个基于 Three.js 的 3D 引擎，支持粒子系统、物理模拟和输入交互等功能。</p>
+      <div style="display: flex; gap: 1rem;">
+        <a href="/examples.html" style="display: inline-block; background-color: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 1.2rem;">
+          查看示例浏览器
+        </a>
+        <a href="https://github.com/yourusername/your-engine-repo" style="display: inline-block; background-color: #333; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 1.2rem;">
+          GitHub 仓库
+        </a>
+      </div>
+    </div>
   </div>
+
+
+
   <script type="module" src="/src/physicsDemo.ts"></script>
 </body>
 </html>

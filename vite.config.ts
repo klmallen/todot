@@ -42,6 +42,12 @@ export default defineConfig({
     target: 'esnext',
     outDir: 'dist',
     assetsDir: 'assets',
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      input: {
+        main: './index.html',
+        examples: './examples.html'
+      }
+    }
   }
 });

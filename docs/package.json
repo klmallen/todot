@@ -1,0 +1,22 @@
+{
+  "name": "todot-engine-docs",
+  "version": "1.0.0",
+  "description": "Documentation for Todot 3D Engine",
+  "main": "index.js",
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "keywords": [
+    "todot",
+    "engine",
+    "3d",
+    "documentation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "vitepress": "^1.0.0-rc.40"
+  }
+}

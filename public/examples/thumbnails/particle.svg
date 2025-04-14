@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="300" height="200" fill="#333"/>
+  <circle cx="150" cy="100" r="50" fill="#3498db" opacity="0.8"/>
+  <circle cx="120" cy="80" r="30" fill="#e74c3c" opacity="0.6"/>
+  <circle cx="180" cy="90" r="25" fill="#2ecc71" opacity="0.7"/>
+  <circle cx="140" cy="120" r="20" fill="#f1c40f" opacity="0.5"/>
+  <circle cx="170" cy="70" r="15" fill="#9b59b6" opacity="0.6"/>
+  <text x="150" y="180" font-family="Arial" font-size="16" fill="white" text-anchor="middle">粒子系统示例</text>
+</svg>

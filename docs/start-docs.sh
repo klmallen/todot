@@ -1,0 +1,6 @@
+#!/bin/bash
+echo "正在安装依赖..."
+npm install
+
+echo "启动文档开发服务器..."
+npm run docs:dev

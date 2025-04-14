@@ -458,7 +458,7 @@ export class SceneSerializer {
     if (node instanceof ModelLoader3D) {
     
       data.modelPath = node.modelPath;
-      alert(node.modelPath)
+      // alert(node.modelPath)
     }
 
     // 处理 Mesh 的特殊情况

@@ -12,9 +12,9 @@ import { SceneSerializer } from './SceneSerializer';
 
 export default class Engine {
   private static instance: Engine | null = null;
-  
+
   private clock: Clock;
-  private renderer: THREE.WebGLRenderer;
+  private renderer: THREE.WebGLRenderer | IRenderer;
   private physics: IPhysics | null;
   private threeScene: THREE.Scene;  // 引擎唯一的THREE场景
   private scenes: Map<string, Scene> = new Map();  // 场景管理器
@@ -32,15 +32,15 @@ export default class Engine {
     if (Engine.instance) {
       return Engine.instance;
     }
-    
+
     Engine.instance = this;
     this.clock = new Clock();
     this.canvas = canvas || document.createElement('canvas');
     this.threeScene = new THREE.Scene();
-    
+
     this.physics = physics;
     this.camera = new Camera();
-    
+
     // 预绑定事件处理函数，避免多次绑定创建多个函数实例
     this.boundOnWindowResize = this.onWindowResize.bind(this);
   }
@@ -56,33 +56,69 @@ export default class Engine {
   }
 
   private async initRenderer(useWebGPU: boolean): Promise<void> {
-    // 创建 WebGL 渲染器
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: this.canvas,
-      antialias: true,
-      alpha: true
-    });
-    
-    // 设置渲染器的基本属性
-    this.renderer.setPixelRatio(window.devicePixelRatio);
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    
-    // 如果没有提供canvas，将渲染器的canvas添加到文档中
-    if (!this.canvas.parentElement) {
-      document.body.appendChild(this.renderer.domElement);
-    }
-    
-    // 移除可能存在的旧监听器
-    window.removeEventListener('resize', this.boundOnWindowResize);
-    // 添加窗口大小变化的监听
-    window.addEventListener('resize', this.boundOnWindowResize);
-    
-    this.canvas.style.pointerEvents = 'auto';
-    // 确保渲染器的canvas不会阻止事件传播
-    if (this.renderer.domElement) {
-      this.renderer.domElement.style.pointerEvents = 'auto';
+    try {
+      if (useWebGPU) {
+        // 尝试创建WebGPU渲染器
+        const { WebGPURenderer } = await import('./WebGPURenderer');
+        this.renderer = new WebGPURenderer({
+          canvas: this.canvas,
+          alpha: true
+        });
+
+        // 等待WebGPU渲染器初始化完成
+        if (!this.renderer.isInitialized()) {
+          console.warn('WebGPU渲染器尚未初始化完成，等待初始化...');
+          // 这里可以添加等待逻辑，但WebGPURenderer的构造函数已经调用了init
+        }
+
+        console.log('成功创建WebGPU渲染器');
+      } else {
+        // 创建WebGL渲染器
+        this.renderer = new THREE.WebGLRenderer({
+          canvas: this.canvas,
+          antialias: true,
+          alpha: true
+        });
+
+        // 设置WebGL渲染器的基本属性
+        const webglRenderer = this.renderer as THREE.WebGLRenderer;
+        webglRenderer.setPixelRatio(window.devicePixelRatio);
+        webglRenderer.setSize(window.innerWidth, window.innerHeight);
+        webglRenderer.shadowMap.enabled = true;
+        webglRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        // 如果没有提供canvas，将渲染器的canvas添加到文档中
+        if (!this.canvas.parentElement) {
+          document.body.appendChild(webglRenderer.domElement);
+        }
+
+        console.log('成功创建WebGL渲染器');
+      }
+
+      // 移除可能存在的旧监听器
+      window.removeEventListener('resize', this.boundOnWindowResize);
+      // 添加窗口大小变化的监听
+      window.addEventListener('resize', this.boundOnWindowResize);
+
+      this.canvas.style.pointerEvents = 'auto';
+      // 确保渲染器的canvas不会阻止事件传播
+      const domElement = this.renderer instanceof THREE.WebGLRenderer
+        ? this.renderer.domElement
+        : (this.renderer as any).getNativeRenderer().domElement;
+
+      if (domElement) {
+        domElement.style.pointerEvents = 'auto';
+      }
+    } catch (error) {
+      console.error('渲染器初始化失败:', error);
+
+      // 如果WebGPU初始化失败，回退到WebGL
+      if (useWebGPU) {
+        console.warn('WebGPU不受支持或初始化失败，回退到WebGL渲染器');
+        return this.initRenderer(false);
+      }
+
+      throw new Error(`渲染器初始化失败: ${error.message}`);
     }
   }
 
@@ -90,20 +126,20 @@ export default class Engine {
   public async start(): Promise<void> {
     // 初始化轨道控制器 - 可选择在这里初始化或由用户手动调用
     this.initOrbitControls();
-    
+
     // 初始化场景中所有节点的 onReady
     this.scenes.forEach(scene => {
       const rootNode = scene.getRootNode();
       rootNode.onReady();
     });
-    
+
     // 激活默认场景
     for (const [name, scene] of this.scenes.entries()) {
       if (scene.isActive()) {
         scene.activate(); // 这将触发 onEnterScene
       }
     }
-    
+
     this.clock.start();
     this.update();
   }
@@ -114,7 +150,17 @@ export default class Engine {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
     }
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+    // 根据渲染器类型调用不同的setSize方法
+    if (this.renderer instanceof THREE.WebGLRenderer) {
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+    } else {
+      // 假设其他渲染器通过getNativeRenderer()获取原生渲染器
+      const nativeRenderer = (this.renderer as any).getNativeRenderer();
+      if (nativeRenderer && typeof nativeRenderer.setSize === 'function') {
+        nativeRenderer.setSize(window.innerWidth, window.innerHeight);
+      }
+    }
   }
 
   // 初始化轨道控制器，确保不会拦截其他DOM事件
@@ -124,17 +170,22 @@ export default class Engine {
       if (this.orbitControls) {
         this.orbitControls.dispose();
       }
-      
-      this.orbitControls = new OrbitControls(this.camera.getThreeCamera(), this.renderer.domElement);
-      console.log(this.renderer.domElement,'this.renderer.domElement')
-      
+
+      // 获取适当的DOM元素
+      const domElement = this.renderer instanceof THREE.WebGLRenderer
+        ? this.renderer.domElement
+        : (this.renderer as any).getNativeRenderer().domElement;
+
+      this.orbitControls = new OrbitControls(this.camera.getThreeCamera(), domElement);
+      console.log(domElement, 'domElement for OrbitControls');
+
       // 设置控制器默认属性
       this.orbitControls.enableDamping = true; // 添加阻尼效果
       this.orbitControls.dampingFactor = 0.25;
       this.orbitControls.enableZoom = true;
       this.orbitControls.minDistance = 1;
       this.orbitControls.maxDistance = 1000;
-      
+
       // 确保控制器只在用户按下特定键时才响应，比如按住Alt键
       // this.orbitControls.keyPanSpeed = 0;  // 禁用键盘平移
       // this.orbitControls.keys = {
@@ -146,28 +197,28 @@ export default class Engine {
   // 更新 update 方法以包含轨道控制器更新
   private update(): void {
     const deltaTime = this.clock.getDelta();
-    
+
     // 更新物理系统
     if (this.physics) {
       this.physics.update(deltaTime);
     }
-    
+
     // 更新轨道控制器
     if (this.orbitControls) {
       this.orbitControls.update();
     }
-    
+
     // 更新所有场景，但只有激活的场景会实际更新其节点
     this.scenes.forEach(scene => {
       scene.update(deltaTime);
     });
-    
-    // 使用 WebGL 渲染器进行渲染
+
+    // 使用渲染器进行渲染
     this.renderer.render(this.threeScene, this.camera.getThreeCamera());
-    
+
     // 更新包围盒辅助器
     this.updateBoundingBoxHelpers();
-    
+
     requestAnimationFrame(() => this.update());
   }
 
@@ -183,28 +234,41 @@ export default class Engine {
     }
   }
 
-  // 获取渲染器的方法现在返回 WebGLRenderer
-  public getRenderer(): THREE.WebGLRenderer {
+  // 获取渲染器
+  public getRenderer(): THREE.WebGLRenderer | IRenderer {
     return this.renderer;
+  }
+
+  // 获取原生渲染器
+  public getNativeRenderer(): THREE.WebGLRenderer | any {
+    if (this.renderer instanceof THREE.WebGLRenderer) {
+      return this.renderer;
+    } else {
+      return (this.renderer as any).getNativeRenderer();
+    }
   }
 
   // 修改 dispose 方法确保正确清理事件监听器
   public dispose(): void {
     // 停止动画循环
     this.clock.stop();
-    
+
     // 清理渲染器
-    this.renderer.dispose();
-    
+    if (this.renderer instanceof THREE.WebGLRenderer) {
+      this.renderer.dispose();
+    } else {
+      this.renderer.dispose();
+    }
+
     // 移除事件监听
     window.removeEventListener('resize', this.boundOnWindowResize);
-    
+
     // 清理场景
     this.scenes.forEach(scene => {
       scene.dispose();
     });
     this.scenes.clear();
-    
+
     // 清理 UI 组件
     this.uiComponents.forEach(component => {
       if (component.parentElement) {
@@ -212,7 +276,7 @@ export default class Engine {
       }
     });
     this.uiComponents.clear();
-    
+
     // 重置实例
     Engine.instance = null;
   }
@@ -238,7 +302,7 @@ export default class Engine {
 
 
   // 修改 init 方法以选择渲染器类型
-  async init(options: { 
+  async init(options: {
     showDefaultUI?: boolean,
     showHelpers?: boolean,
     addDefaultLights?: boolean,
@@ -246,13 +310,13 @@ export default class Engine {
     showBoundingBoxes?: boolean, // 新增选项
   } = {}) {
     // 核心引擎初始化
-    const useWebGPU = options.useWebGPU ?? false; 
+    const useWebGPU = options.useWebGPU ?? false;
     // 初始化渲染器，确保在init阶段就创建渲染器
     await this.initRenderer(useWebGPU).catch(error => {
       console.error('渲染器初始化失败:', error);
       throw new Error('渲染器初始化失败');
     });
-    
+
     // 添加默认灯光
     if (options.addDefaultLights) {
       this.setupDefaultLights();
@@ -264,12 +328,12 @@ export default class Engine {
     if (options.showHelpers) {
       this.setupHelpers();
     }
-    
+
     // 只有在需要时才初始化UI
     if (options.showDefaultUI) {
       this.initDefaultUI();
     }
-    
+
     return this;
   }
 
@@ -343,19 +407,19 @@ export default class Engine {
     leftPanel.className = 'editor-panel left-panel';
     leftPanel.style.pointerEvents = 'auto'; // 确保面板可以接收事件
     document.body.appendChild(leftPanel);
-    
+
     // 创建右侧面板
     const rightPanel = document.createElement('div');
     rightPanel.id = 'right_panel';
     rightPanel.className = 'editor-panel right-panel';
     rightPanel.style.pointerEvents = 'auto'; // 确保面板可以接收事件
     document.body.appendChild(rightPanel);
-    
+
     // 添加场景树视图
     const sceneTreeView = document.createElement('sodot-tree-view');
     sceneTreeView.style.pointerEvents = 'auto'; // 确保组件可以接收事件
     this.addUIComponent('sceneTreeView', sceneTreeView, leftPanel);
-    
+
     // 添加其他默认UI组件...
   }
 
@@ -364,9 +428,9 @@ export default class Engine {
     if (this.scenes.has(scene.getName())) {
       throw new Error(`场景 ${scene.getName()} 已存在`);
     }
-    
+
     this.scenes.set(scene.getName(), scene);
-    
+
     // 确保根节点的 onReady 被调用
     const rootNode = scene.getRootNode();
     rootNode.onReady();
@@ -390,7 +454,7 @@ export default class Engine {
           }
         });
       }
-      
+
       scene.activate();
       this.activeScenes.add(name);
       this.threeScene.add(scene.getThreeObject());
@@ -430,12 +494,12 @@ export default class Engine {
    */
   public exportEngineState(): any {
     const scenes: { [name: string]: any } = {};
-    
+
     // 序列化所有场景
     this.scenes.forEach((scene, name) => {
       scenes[name] = scene.toJSON();
     });
-    
+
     return {
       version: '1.0.0',
       timestamp: new Date().toISOString(),
@@ -456,16 +520,16 @@ export default class Engine {
     if (state.version !== '1.0.0') {
       console.warn('引擎状态版本不匹配');
     }
-    
+
     // 清除现有状态
     this.reset();
-    
+
     // 导入场景
     Object.entries(state.scenes).forEach(([name, sceneData]) => {
       const scene = SceneSerializer.deserializeScene(JSON.stringify(sceneData));
       this.addScene(scene);
     });
-    
+
     // 激活场景
     state.activeScenes.forEach((name: string) => {
       this.activateScene(name, false);
@@ -538,7 +602,7 @@ export default class Engine {
       console.error(`场景 ${sceneName} 不存在`);
       return;
     }
-    
+
     const actualFilename = filename || `${sceneName}.json`;
     SceneSerializer.exportSceneToFile(scene, actualFilename);
   }
@@ -552,12 +616,12 @@ export default class Engine {
     try {
       const scene = await SceneSerializer.importSceneFromFile(file);
       const sceneName = scene.getName();
-      
+
       // 如果场景已存在，先移除
       if (this.scenes.has(sceneName)) {
         this.removeScene(sceneName);
       }
-      
+
       // 添加新场景
       this.addScene(scene);
       return sceneName;
@@ -578,7 +642,7 @@ export default class Engine {
       console.error(`场景 ${sceneName} 不存在`);
       return null;
     }
-    
+
     const jsonStr = SceneSerializer.serializeScene(scene, false);
     return JSON.parse(jsonStr);
   }
@@ -592,15 +656,15 @@ export default class Engine {
     try {
       // 如果传入的是对象，转换为字符串
       const jsonStr = typeof jsonData === 'string' ? jsonData : JSON.stringify(jsonData);
-      
+
       const scene = SceneSerializer.deserializeScene(jsonStr);
       const sceneName = scene.getName();
-      
+
       // 如果场景已存在，先移除
       if (this.scenes.has(sceneName)) {
         this.removeScene(sceneName);
       }
-      
+
       // 添加新场景
       this.addScene(scene);
       return sceneName;
@@ -614,10 +678,10 @@ export default class Engine {
   public reset(): void {
     // 清除所有场景
     this.scenes.clear();
-    
+
     // 重置其他状态
     this.activeScenes.clear();
-    
+
     // 重置渲染器状态
     this.renderer.setSize(this.canvas.width, this.canvas.height);
     this.renderer.clear();
@@ -626,30 +690,30 @@ export default class Engine {
   // 创建默认场景
   public createDefaultScene(name: string = 'Default Scene'): Scene {
     const scene = new Scene(name);
-    
+
     // 添加一些默认对象
     const ambientLight = new THREE.AmbientLight(0x404040);
     scene.add(ambientLight);
-    
+
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(5, 10, 7.5);
     scene.add(directionalLight);
-    
+
     // 添加地板网格
     const gridHelper = new THREE.GridHelper(20, 20);
     scene.add(gridHelper);
-    
+
     // 添加一个默认立方体
     const geometry = new THREE.BoxGeometry(1, 1, 1);
     const material = new THREE.MeshStandardMaterial({ color: 0x3080ff });
     const cube = new THREE.Mesh(geometry, material);
     cube.position.set(0, 0.5, 0);
     scene.add(cube);
-    
+
     // 将场景添加到引擎
     this.addScene(scene);
     this.activateScene(name);
-    
+
     return scene;
   }
 
@@ -664,24 +728,24 @@ export default class Engine {
     if (!scene) {
       throw new Error(`Scene not found: ${sceneId}`);
     }
-    
+
     // 清除现有对象
     scene.clear();
-    
+
     // 解析和添加节点
     if (data.nodes && Array.isArray(data.nodes)) {
       this.parseNodes(scene, data.nodes);
     }
-    
+
     // 应用场景设置
     if (data.settings) {
       scene.settings = { ...data.settings };
-      
+
       // 应用背景色
       if (data.settings.background) {
         scene.background = new THREE.Color(data.settings.background);
       }
-      
+
       // 应用其他设置...
     }
   }
@@ -698,14 +762,14 @@ export default class Engine {
    */
   public setShowBoundingBoxes(show: boolean): void {
     this.showBoundingBoxes = show;
-    
+
     if (show) {
       this.createBoundingBoxHelpers();
     } else {
       this.removeBoundingBoxHelpers();
     }
   }
-  
+
   /**
    * 为所有场景中的对象创建包围盒辅助器
    */
@@ -727,7 +791,7 @@ export default class Engine {
       });
     });
   }
-  
+
   /**
    * 移除所有包围盒辅助器
    */
@@ -739,23 +803,23 @@ export default class Engine {
         scene.getThreeScene().remove(helper);
       }
     });
-    
+
     // 清空映射
     this.boundingBoxHelpers.clear();
   }
-  
+
   /**
    * 更新所有包围盒辅助器
    * 在每帧调用
    */
   public updateBoundingBoxHelpers(): void {
     if (!this.showBoundingBoxes) return;
-    
+
     this.boundingBoxHelpers.forEach((helper, obj) => {
       helper.update();
     });
   }
-  
+
   /**
    * 根据对象查找其所在的场景
    * @param obj 要查找的对象
