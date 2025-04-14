@@ -99,6 +99,20 @@ export class Node3d {
     this.threeObject.scale.copy(value);
   }
 
+  // 四元数
+  public get quaternion(): THREE.Quaternion {
+    return this.threeObject.quaternion;
+  }
+
+  public set quaternion(value: THREE.Quaternion) {
+    this.threeObject.quaternion.copy(value);
+  }
+
+  // 设置四元数
+  public setQuaternion(x: number, y: number, z: number, w: number): void {
+    this.threeObject.quaternion.set(x, y, z, w);
+  }
+
   // 设置节点类型
   public setType(type: string): void {
     this.type = type;

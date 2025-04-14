@@ -107,7 +107,6 @@ export class CannonCollider extends Collider {
     // 设置碰撞过滤
     this.body.collisionFilterGroup = this.group;
     this.body.collisionFilterMask = this.mask;
-    
     // 同步初始变换
     this.syncNodeToBody();
   }

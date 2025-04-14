@@ -110,8 +110,8 @@ export class CannonPhysics implements IPhysics {
   private syncBodiesToNodes(): void {
     for (const [collider, body] of this.colliders.entries()) {
       const node = collider.getNode();
-      
-      // 同步位置
+      console.log(body,'body')
+      // // 同步位置
       node.position.set(
         body.position.x,
         body.position.y,

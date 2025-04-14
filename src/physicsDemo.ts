@@ -1,3 +1,11 @@
+/*
+ * @Author: lvyang 13386341673@163.com
+ * @Date: 2025-04-13 15:03:10
+ * @LastEditors: lvyang 13386341673@163.com
+ * @LastEditTime: 2025-04-14 11:38:01
+ * @FilePath: \todot\src\physicsDemo.ts
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 import { runPhysicsExample } from './engine/examples/physics-example';
 
 /**
@@ -5,15 +13,23 @@ import { runPhysicsExample } from './engine/examples/physics-example';
  */
 window.addEventListener('DOMContentLoaded', async () => {
   try {
-    // 运行物理引擎示例
-    const engine = await runPhysicsExample();
+    // 创建canvas元素
+    const canvas = document.createElement('canvas');
+    canvas.style.width = '100%';
+    canvas.style.height = '100vh';
+    canvas.style.display = 'block';
+    document.body.appendChild(canvas);
     
     // 添加说明信息
     addInstructions();
     
-    console.log('物理引擎演示启动成功!');
+    // 运行物理引擎示例 (使用await处理返回的Promise)
+    const engine = await runPhysicsExample(canvas);
+    
+    console.log('物理引擎演示启动成功!', engine);
   } catch (error) {
     console.error('物理引擎演示启动失败:', error);
+    alert(`启动失败: ${error.message}`);
   }
 });
 

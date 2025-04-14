@@ -44,7 +44,9 @@ export default class Engine {
     // 预绑定事件处理函数，避免多次绑定创建多个函数实例
     this.boundOnWindowResize = this.onWindowResize.bind(this);
   }
-
+  public getPhysics(): IPhysics | null {
+    return this.physics;
+  }
   // 添加静态方法获取实例
   public static getInstance(): Engine {
     if (!Engine.instance) {
