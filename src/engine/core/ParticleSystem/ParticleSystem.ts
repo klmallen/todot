@@ -128,14 +128,14 @@ export class ParticleSystem extends Node3d {
 
     // 创建默认设置
     this._settings = new ParticleSystemSettings();
-    
+
     // 创建发射器和渲染器
     this._emitter = new ParticleEmitter(this._settings);
     this._renderer = new ParticleRenderer(this._settings);
-    
+
     // 将渲染器的对象添加到节点
     this.getThreeObject().add(this._renderer.getMesh());
-    
+
     // 如果设置为启动时播放，则自动播放
     if (this._playOnAwake) {
       this.play();
@@ -147,7 +147,7 @@ export class ParticleSystem extends Node3d {
    */
   onReady(): void {
     super.onReady();
-    
+
     // 如果设置为预热，则预热粒子系统
     if (this._prewarm && this._playOnAwake) {
       this.prewarm();
@@ -160,18 +160,18 @@ export class ParticleSystem extends Node3d {
    */
   update(deltaTime: number): void {
     super.update(deltaTime);
-    
+
     if (!this._isPlaying || this._isPaused) {
       return;
     }
-    
+
     // 应用播放速度
     const scaledDeltaTime = deltaTime * this._playbackSpeed;
-    
+
     // 更新时间
     this._time += scaledDeltaTime;
     this._emissionTime += scaledDeltaTime;
-    
+
     // 检查是否完成一个循环
     if (this._time >= this._duration) {
       if (this._loop) {
@@ -180,22 +180,22 @@ export class ParticleSystem extends Node3d {
       } else {
         // 如果不循环，停止粒子系统
         this.stop();
-        
+
         // 调用完成回调
         if (this._onComplete) {
           this._onComplete();
         }
-        
+
         return;
       }
     }
-    
+
     // 发射新粒子
     this.emitParticles(scaledDeltaTime);
-    
+
     // 更新现有粒子
     this.updateParticles(scaledDeltaTime);
-    
+
     // 更新渲染器
     this._renderer.update(this._particles);
   }
@@ -208,28 +208,28 @@ export class ParticleSystem extends Node3d {
     // 根据发射率计算本帧应该发射的粒子数量
     const emissionRate = this._settings.emission.rateOverTime;
     const particlesToEmit = Math.floor(emissionRate * deltaTime);
-    
+
     // 发射粒子
     for (let i = 0; i < particlesToEmit; i++) {
       // 检查是否达到最大粒子数
       if (this._particles.length >= this._maxParticles) {
         break;
       }
-      
+
       // 创建新粒子
       const particle = this._emitter.emitParticle();
-      
+
       // 如果在世界空间中模拟，转换粒子位置
       if (this._simulationSpace === 'World') {
         const worldMatrix = this.getThreeObject().matrixWorld;
         particle.position.applyMatrix4(worldMatrix);
-        
+
         // 转换速度方向
         const direction = new THREE.Vector3().copy(particle.velocity).normalize();
         direction.applyMatrix4(new THREE.Matrix4().extractRotation(worldMatrix));
         particle.velocity.copy(direction.multiplyScalar(particle.velocity.length()));
       }
-      
+
       // 添加到粒子列表
       this._particles.push(particle);
     }
@@ -242,43 +242,43 @@ export class ParticleSystem extends Node3d {
   private updateParticles(deltaTime: number): void {
     // 重力向量
     const gravity = new THREE.Vector3(0, -9.8 * this._gravityModifier, 0);
-    
+
     // 更新每个粒子
     for (let i = this._particles.length - 1; i >= 0; i--) {
       const particle = this._particles[i];
-      
+
       // 更新粒子生命周期
       particle.age += deltaTime;
-      
+
       // 检查粒子是否已经死亡
       if (particle.age >= particle.lifetime) {
         // 移除死亡粒子
         this._particles.splice(i, 1);
         continue;
       }
-      
+
       // 计算生命周期比例
       const lifetimeRatio = particle.age / particle.lifetime;
-      
+
       // 更新粒子大小
       if (this._settings.sizeOverLifetime) {
         const sizeMultiplier = this._settings.sizeOverLifetime.evaluate(lifetimeRatio);
         particle.size = particle.startSize * sizeMultiplier;
       }
-      
+
       // 更新粒子颜色
       if (this._settings.colorOverLifetime) {
         particle.color.copy(this._settings.colorOverLifetime.evaluate(lifetimeRatio));
       }
-      
+
       // 更新粒子旋转
       particle.rotation += particle.rotationSpeed * deltaTime;
-      
+
       // 应用重力
       if (this._useGravity) {
         particle.velocity.add(gravity.clone().multiplyScalar(deltaTime));
       }
-      
+
       // 更新位置
       particle.position.add(particle.velocity.clone().multiplyScalar(deltaTime));
     }
@@ -291,14 +291,14 @@ export class ParticleSystem extends Node3d {
     // 模拟粒子系统运行一个完整周期
     const simulationSteps = 100; // 模拟步数
     const stepTime = this._duration / simulationSteps;
-    
+
     // 先清空现有粒子
     this._particles = [];
-    
+
     // 重置时间
     this._time = 0;
     this._emissionTime = 0;
-    
+
     // 模拟粒子系统运行
     for (let i = 0; i < simulationSteps; i++) {
       this.emitParticles(stepTime);
@@ -306,7 +306,7 @@ export class ParticleSystem extends Node3d {
       this._time += stepTime;
       this._emissionTime += stepTime;
     }
-    
+
     // 重置时间
     this._time = 0;
   }
@@ -335,7 +335,7 @@ export class ParticleSystem extends Node3d {
     this._isPaused = false;
     this._time = 0;
     this._emissionTime = 0;
-    
+
     if (clearParticles) {
       this._particles = [];
       this._renderer.update(this._particles);
@@ -355,10 +355,25 @@ export class ParticleSystem extends Node3d {
    * @param settings 粒子系统设置
    */
   setSettings(settings: Partial<ParticleSystemSettings>): void {
-    // 合并设置
+    // 合并设置，确保必要属性存在
+    if (settings.emission) {
+      // 确保 emission 对象有 rateOverTime 属性
+      if (!settings.emission.rateOverTime && settings.emission.rateOverTime !== 0) {
+        settings.emission.rateOverTime = this._settings.emission.rateOverTime || 10;
+      }
+      this._settings.emission = { ...this._settings.emission, ...settings.emission };
+    }
+
+    // 合并其他设置
     Object.assign(this._settings, settings);
-    
+
     // 更新发射器和渲染器
+    console.log('更新粒子系统设置:', {
+      renderMode: this._settings.renderer.renderMode,
+      emission: this._settings.emission,
+      hasMesh: this._settings.renderer.mesh ? true : false
+    });
+
     this._emitter.updateSettings(this._settings);
     this._renderer.updateSettings(this._settings);
   }
@@ -368,9 +383,67 @@ export class ParticleSystem extends Node3d {
    * @param mesh 自定义网格
    */
   setCustomMesh(mesh: THREE.BufferGeometry): void {
+    // 确保网格有效
+    if (!mesh) {
+      console.error('无效的网格几何体');
+      return;
+    }
+
+    console.log('设置自定义网格:', mesh);
+    console.log('网格详情:', {
+      vertices: mesh.attributes.position ? mesh.attributes.position.count : 'no position attribute',
+      attributes: Object.keys(mesh.attributes),
+      uuid: mesh.uuid
+    });
+
+    // 设置渲染模式为网格模式
     this._settings.renderer.renderMode = 'Mesh';
+
+    // 设置自定义网格
     this._settings.renderer.mesh = mesh;
-    this._renderer.updateSettings(this._settings);
+
+    // 确保混合模式正确
+    if (!this._settings.renderer.blending) {
+      this._settings.renderer.blending = true;
+    }
+
+    // 确保发射率足够
+    if (!this._settings.emission || this._settings.emission.rateOverTime < 5) {
+      if (!this._settings.emission) {
+        this._settings.emission = { rateOverTime: 10 };
+      } else {
+        this._settings.emission.rateOverTime = 10;
+      }
+    }
+
+    // 重新初始化渲染器
+    this._renderer.dispose();
+    this._renderer = new ParticleRenderer(this._settings);
+    this.getThreeObject().clear();
+    this.getThreeObject().add(this._renderer.getMesh());
+
+    console.log('已设置自定义网格，渲染模式为:', this._settings.renderer.renderMode);
+    console.log('粒子系统设置:', {
+      renderMode: this._settings.renderer.renderMode,
+      emission: this._settings.emission,
+      startLifetime: this._settings.startLifetime,
+      startSpeed: this._settings.startSpeed,
+      shape: this._settings.shape
+    });
+
+    // 如果粒子系统正在运行，重新启动它
+    if (this._isPlaying && !this._isPaused) {
+      this.stop();
+      this.play();
+    }
+  }
+
+  /**
+   * 获取当前使用的自定义网格
+   * @returns 自定义网格几何体
+   */
+  getCustomMesh(): THREE.BufferGeometry | undefined {
+    return this._settings.renderer.mesh;
   }
 
   /**
@@ -423,11 +496,20 @@ export class ParticleSystem extends Node3d {
   destroy(): void {
     // 停止粒子系统
     this.stop();
-    
+
     // 清理渲染器
     this._renderer.dispose();
-    
-    // 调用父类销毁方法
-    super.destroy();
+
+    // 清理粒子数组
+    this._particles = [];
+
+    // 清理其他资源
+    this._isPlaying = false;
+    this._isPaused = false;
+    this._time = 0;
+    this._emissionTime = 0;
+
+    // 清理事件监听器
+    // 注意：父类 Node3d 没有 destroy 方法，所以不调用 super.destroy()
   }
 }

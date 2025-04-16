@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Node3d } from './Node3d';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 import { editable, editableComponent } from './decorators';
 
 /**
@@ -80,19 +81,20 @@ interface AnimationController {
 }
 
 /**
- * ModelLoader3D 类 - 用于加载和渲染GLB/GLTF模型
+ * ModelLoader3D 类 - 用于加载和渲染GLB/GLTF/FBX模型
  * 继承自 Node3d
  */
 @editableComponent({
   displayName: '模型加载器',
-  description: '用于加载和渲染GLB/GLTF模型',
+  description: '用于加载和渲染GLB/GLTF/FBX模型',
   icon: 'model',
   category: 'Renderable'
 })
 export class ModelLoader3D extends Node3d {
-    
+
   public model: THREE.Group | null = null;
-  private loader: GLTFLoader;
+  private gltfLoader: GLTFLoader;
+  private fbxLoader: FBXLoader;
   private onLoadedCallback: ((model: THREE.Group) => void) | null = null;
   private animations: Map<string, THREE.AnimationClip> = new Map();
   public addAnimations: THREE.AnimationClip[] = [];
@@ -102,26 +104,26 @@ export class ModelLoader3D extends Node3d {
   private currentAction: THREE.AnimationAction | null = null;
   private isPlaying: boolean = false;
   private transitionDuration: number = 0.3; // 默认过渡时间
-  
+
   // 动画状态系统
   private states: Map<string, AnimationState> = new Map();
   private currentState: string | null = null;
   private defaultState: string | null = null;
-  
+
   // 动画事件系统
   private animationEvents: Map<string, AnimationEvent[]> = new Map();
-  
+
   // 动画混合系统
   private blendAnimations: Map<string, BlendAnimation> = new Map();
   private isBlending: boolean = false;
-  
+
   // 动画参数系统
   private parameters: Map<string, AnimationParameter> = new Map();
   private parameterTriggers: Map<string, { condition: (value: any) => boolean, action: () => void }[]> = new Map();
-  
+
   // 动画层系统
   private animationLayers: Map<string, { priority: number, weight: number }> = new Map();
-  
+
   // 动画队列
   private animationQueue: { name: string, options: AnimationOptions }[] = [];
   private isProcessingQueue: boolean = false;
@@ -131,10 +133,10 @@ export class ModelLoader3D extends Node3d {
   private activeSequences: Set<string> = new Set();
   private sequenceCounter: number = 0;
   private interruptible: boolean = true; // 是否允许打断动画序列
-  
+
   @editable({
     displayName: '模型路径',
-    description: 'GLB/GLTF模型文件的路径',
+    description: 'GLB/GLTF/FBX模型文件的路径',
     type: 'string',
     group: '资源'
   })
@@ -153,7 +155,8 @@ export class ModelLoader3D extends Node3d {
 
   constructor(name: string = '模型加载器', modelPath?: string, options?: { position?: THREE.Vector3, rotation?: THREE.Euler }) {
     super(name, options);
-    this.loader = new GLTFLoader();
+    this.gltfLoader = new GLTFLoader();
+    this.fbxLoader = new FBXLoader();
     if (modelPath) {
       this.modelPath = modelPath; // 仅设置路径，不调用loadModel
       this.loadModel(modelPath);  // 只调用一次loadModel
@@ -165,10 +168,27 @@ export class ModelLoader3D extends Node3d {
    * @param path 模型文件路径
    */
   public loadModel(path: string): void {
-    this.loader.load(
+    // 根据文件扩展名选择合适的加载器
+    const extension = path.split('.').pop()?.toLowerCase();
+
+    if (extension === 'fbx') {
+      // 使用FBX加载器
+      this.loadFBXModel(path);
+    } else {
+      // 默认使用GLTF加载器
+      this.loadGLTFModel(path);
+    }
+  }
+
+  /**
+   * 加载GLTF/GLB模型
+   * @param path 模型文件路径
+   */
+  private loadGLTFModel(path: string): void {
+    this.gltfLoader.load(
       path,
       (gltf) => {
-        console.log('模型加载成功:', gltf);
+        console.log('GLTF模型加载成功:', gltf);
         this.model = gltf.scene;
         this.getThreeObject().add(this.model);
         this.setType('ModelLoader3D');
@@ -178,43 +198,43 @@ export class ModelLoader3D extends Node3d {
         // 初始化动画混合器
         if (this.model) {
           this.mixer = new THREE.AnimationMixer(this.model);
-          
+
           // 添加事件监听器
           this.mixer.addEventListener('finished', this.onAnimationFinished.bind(this));
           this.mixer.addEventListener('loop', this.onAnimationLoop.bind(this));
         }
-        
+
         // 缓存动画数据
         if (gltf.animations && gltf.animations.length > 0) {
           this.addAnimations = gltf.animations;
           gltf.animations.forEach(animation => {
             this.animations.set(animation.name, animation);
           });
-          
+
           // 输出可用动画
           const animNames = this.getAnimationNames();
           if (animNames.length > 0) {
             console.log(`模型 [${this.name}] 可用动画:`, animNames);
           }
         }
-        
+
         // 处理模型结构，隐藏骨骼和辅助对象
         this.model.traverse((object: THREE.Object3D) => {
           // 隐藏骨骼和辅助对象
-          if (object.type === 'Bone' || 
-              object.name.includes('helper') || 
+          if (object.type === 'Bone' ||
+              object.name.includes('helper') ||
               object.name.includes('Helper') ||
               object.name.includes('Skeleton') ||
               object.name.includes('Control')) {
             object.visible = false;
           }
         });
-        
+
         // 调用加载完成回调
         if (this.onLoadedCallback && this.model) {
           this.onLoadedCallback(this.model);
         }
-        
+
         // 如果有默认状态，自动播放
         if (this.defaultState) {
           this.transitionTo(this.defaultState);
@@ -222,18 +242,89 @@ export class ModelLoader3D extends Node3d {
       },
       undefined,
       (error) => {
-        console.error('模型加载失败:', error);
+        console.error('GLTF模型加载失败:', error);
       }
     );
   }
-  
+
+  /**
+   * 加载FBX模型
+   * @param path 模型文件路径
+   */
+  private loadFBXModel(path: string): void {
+    this.fbxLoader.load(
+      path,
+      (fbxModel) => {
+        console.log('FBX模型加载成功:', fbxModel);
+
+        // FBX加载器直接返回Object3D，需要包装成Group
+        this.model = new THREE.Group();
+        this.model.add(fbxModel);
+
+        this.getThreeObject().add(this.model);
+        this.setType('ModelLoader3D');
+        this.addTag('model');
+        this.addTag('renderable');
+
+        // 初始化动画混合器
+        if (this.model) {
+          this.mixer = new THREE.AnimationMixer(this.model);
+
+          // 添加事件监听器
+          this.mixer.addEventListener('finished', this.onAnimationFinished.bind(this));
+          this.mixer.addEventListener('loop', this.onAnimationLoop.bind(this));
+        }
+
+        // 缓存动画数据
+        if (fbxModel.animations && fbxModel.animations.length > 0) {
+          this.addAnimations = fbxModel.animations;
+          fbxModel.animations.forEach((animation: THREE.AnimationClip) => {
+            this.animations.set(animation.name, animation);
+          });
+
+          // 输出可用动画
+          const animNames = this.getAnimationNames();
+          if (animNames.length > 0) {
+            console.log(`模型 [${this.name}] 可用动画:`, animNames);
+          }
+        }
+
+        // 处理模型结构，隐藏骨骼和辅助对象
+        this.model.traverse((object: THREE.Object3D) => {
+          // 隐藏骨骼和辅助对象
+          if (object.type === 'Bone' ||
+              object.name.includes('helper') ||
+              object.name.includes('Helper') ||
+              object.name.includes('Skeleton') ||
+              object.name.includes('Control')) {
+            object.visible = false;
+          }
+        });
+
+        // 调用加载完成回调
+        if (this.onLoadedCallback && this.model) {
+          this.onLoadedCallback(this.model);
+        }
+
+        // 如果有默认状态，自动播放
+        if (this.defaultState) {
+          this.transitionTo(this.defaultState);
+        }
+      },
+      undefined,
+      (error) => {
+        console.error('FBX模型加载失败:', error);
+      }
+    );
+  }
+
   /**
    * 当动画完成时的回调
    */
   private onAnimationFinished(event: any): void {
     const action = event.action;
     const clipName = action.getClip().name;
-    
+
     // 触发动画结束事件
     if (this.currentState && this.states.has(this.currentState)) {
       const state = this.states.get(this.currentState)!;
@@ -242,13 +333,13 @@ export class ModelLoader3D extends Node3d {
         this.onStateComplete(this.currentState);
       }
     }
-    
+
     // 处理动画队列
     if (this.animationQueue.length > 0 && !this.isProcessingQueue) {
       this.processAnimationQueue();
     }
   }
-  
+
   /**
    * 当动画循环时的回调
    */
@@ -256,29 +347,29 @@ export class ModelLoader3D extends Node3d {
     const action = event.action;
     const clipName = action.getClip().name;
     const time = action.time;
-    
+
     // 检查并触发动画事件
     this.checkAnimationEvents(clipName, time);
   }
-  
+
   /**
    * 检查并触发动画事件
    */
   private checkAnimationEvents(animationName: string, time: number): void {
     if (!this.animationEvents.has(animationName)) return;
-    
+
     const events = this.animationEvents.get(animationName)!;
     const clipDuration = this.animations.get(animationName)?.duration || 0;
-    
+
     for (const event of events) {
       // 考虑循环，计算当前实际时间
       const normalizedTime = time % clipDuration;
-      
+
       // 如果时间匹配，触发事件
       if (normalizedTime >= event.time && !event.triggered) {
         event.callback();
         event.triggered = true;
-        
+
         // 如果事件只触发一次，从列表中移除
         if (event.once) {
           const index = events.indexOf(event);
@@ -292,14 +383,14 @@ export class ModelLoader3D extends Node3d {
       }
     }
   }
-  
+
   /**
    * 当状态完成时的回调
    */
   private onStateComplete(stateName: string): void {
     // 这里可以添加状态完成后的逻辑
     console.log(`状态 ${stateName} 完成`);
-    
+
     // 如果有下一个状态要过渡到，可以在这里处理
   }
 
@@ -332,22 +423,22 @@ export class ModelLoader3D extends Node3d {
         this.playAnimation(foundAnim, options);
         return;
       }
-      
+
       console.warn(`动画 "${name}" 未找到。可用动画: ${this.getAnimationNames().join(', ')}`);
       return;
     }
 
     const action = this.mixer.clipAction(clip);
-    
+
     // 设置动画属性
     action.loop = options.loop ?? true ? THREE.LoopRepeat : THREE.LoopOnce;
     action.timeScale = options.speed ?? this.animationSpeed;
-    
+
     // 处理过渡效果
     if (this.currentAction && this.currentAction !== action) {
       this.currentAction.fadeOut(options.transitionDuration ?? this.transitionDuration);
     }
-    
+
     action.reset()
       .fadeIn(options.transitionDuration ?? this.transitionDuration)
       .play();
@@ -375,44 +466,44 @@ export class ModelLoader3D extends Node3d {
       this.mixer.addEventListener('loop', onFrameHandler);
     }
   }
-  
+
   /**
    * 添加动画状态
    * @param state 状态定义
    */
   addState(state: AnimationState): void {
     this.states.set(state.name, state);
-    
+
     // 如果这是第一个状态，设为默认状态
     if (this.states.size === 1 && !this.defaultState) {
       this.setDefaultState(state.name);
     }
   }
-  
+
   /**
    * 移除动画状态
    * @param stateName 状态名称
    */
   removeState(stateName: string): void {
     this.states.delete(stateName);
-    
+
     // 如果移除的是默认状态，重置默认状态
     if (this.defaultState === stateName) {
       this.defaultState = this.states.size > 0 ? Array.from(this.states.keys())[0] : null;
     }
-    
+
     // 如果移除的是当前状态，停止当前动画
     if (this.currentState === stateName) {
       this.stopAnimation();
       this.currentState = null;
-      
+
       // 如果有默认状态，切换回默认状态
       if (this.defaultState) {
         this.transitionTo(this.defaultState);
       }
     }
   }
-  
+
   /**
    * 设置默认状态
    * @param stateName 状态名称
@@ -422,10 +513,10 @@ export class ModelLoader3D extends Node3d {
       console.warn(`状态 "${stateName}" 不存在`);
       return;
     }
-    
+
     this.defaultState = stateName;
   }
-  
+
   /**
    * 转换到指定状态
    * @param stateName 状态名称
@@ -436,14 +527,14 @@ export class ModelLoader3D extends Node3d {
       console.warn(`状态 "${stateName}" 不存在`);
       return;
     }
-    
+
     // 如果已经是当前状态且不强制过渡，则忽略
     if (this.currentState === stateName && !forceTransition) {
       return;
     }
-    
+
     const state = this.states.get(stateName)!;
-    
+
     // 检查条件
     if (state.conditions && !forceTransition) {
       for (const [param, value] of state.conditions.entries()) {
@@ -453,18 +544,18 @@ export class ModelLoader3D extends Node3d {
         }
       }
     }
-    
+
     // 播放动画
     this.playAnimation(state.animationName, {
       loop: state.loop,
       speed: state.speed,
       transitionDuration: state.transitionTime
     });
-    
+
     // 更新当前状态
     this.currentState = stateName;
   }
-  
+
   /**
    * 添加动画事件
    * @param animName 动画名称
@@ -477,24 +568,24 @@ export class ModelLoader3D extends Node3d {
       console.warn(`动画 "${animName}" 不存在`);
       return;
     }
-    
+
     if (!this.animationEvents.has(animName)) {
       this.animationEvents.set(animName, []);
     }
-    
+
     const event: AnimationEvent = {
       time,
       callback,
       once,
       triggered: false
     };
-    
+
     this.animationEvents.get(animName)!.push(event);
-    
+
     // 按时间排序
     this.animationEvents.get(animName)!.sort((a, b) => a.time - b.time);
   }
-  
+
   /**
    * 移除动画事件
    * @param animName 动画名称
@@ -502,7 +593,7 @@ export class ModelLoader3D extends Node3d {
    */
   removeAnimationEvent(animName: string, time?: number): void {
     if (!this.animationEvents.has(animName)) return;
-    
+
     if (time === undefined) {
       // 移除所有事件
       this.animationEvents.delete(animName);
@@ -510,7 +601,7 @@ export class ModelLoader3D extends Node3d {
       // 移除指定时间的事件
       const events = this.animationEvents.get(animName)!;
       const newEvents = events.filter(event => event.time !== time);
-      
+
       if (newEvents.length === 0) {
         this.animationEvents.delete(animName);
       } else {
@@ -518,7 +609,7 @@ export class ModelLoader3D extends Node3d {
       }
     }
   }
-  
+
   /**
    * 设置动画参数
    * @param name 参数名称
@@ -526,11 +617,11 @@ export class ModelLoader3D extends Node3d {
    */
   setParameter(name: string, value: AnimationParameter): void {
     this.parameters.set(name, value);
-    
+
     // 检查参数触发器
     if (this.parameterTriggers.has(name)) {
       const triggers = this.parameterTriggers.get(name)!;
-      
+
       for (const trigger of triggers) {
         if (trigger.condition(value)) {
           trigger.action();
@@ -538,7 +629,7 @@ export class ModelLoader3D extends Node3d {
       }
     }
   }
-  
+
   /**
    * 获取动画参数
    * @param name 参数名称
@@ -546,7 +637,7 @@ export class ModelLoader3D extends Node3d {
   getParameter(name: string): AnimationParameter | undefined {
     return this.parameters.get(name);
   }
-  
+
   /**
    * 添加参数触发器
    * @param paramName 参数名称
@@ -557,10 +648,10 @@ export class ModelLoader3D extends Node3d {
     if (!this.parameterTriggers.has(paramName)) {
       this.parameterTriggers.set(paramName, []);
     }
-    
+
     this.parameterTriggers.get(paramName)!.push({ condition, action });
   }
-  
+
   /**
    * 设置混合动画
    * @param animations 动画列表，包含名称和权重
@@ -568,9 +659,9 @@ export class ModelLoader3D extends Node3d {
   setBlendAnimations(animations: { name: string, weight: number }[]): void {
     // 清除当前混合动画
     this.clearBlendAnimations();
-    
+
     if (!this.mixer) return;
-    
+
     // 添加新的混合动画
     for (const anim of animations) {
       const clip = this.animations.get(anim.name);
@@ -578,11 +669,11 @@ export class ModelLoader3D extends Node3d {
         console.warn(`动画 "${anim.name}" 不存在`);
         continue;
       }
-      
+
       const action = this.mixer.clipAction(clip);
       action.play();
       action.setEffectiveWeight(anim.weight);
-      
+
       this.blendAnimations.set(anim.name, {
         name: anim.name,
         action,
@@ -590,11 +681,11 @@ export class ModelLoader3D extends Node3d {
         targetWeight: anim.weight
       });
     }
-    
+
     this.isBlending = true;
     this.isPlaying = true;
   }
-  
+
   /**
    * 设置混合动画权重
    * @param name 动画名称
@@ -606,9 +697,9 @@ export class ModelLoader3D extends Node3d {
       console.warn(`混合动画 "${name}" 不存在`);
       return;
     }
-    
+
     const blendAnim = this.blendAnimations.get(name)!;
-    
+
     if (duration <= 0) {
       // 立即设置权重
       blendAnim.weight = weight;
@@ -619,7 +710,7 @@ export class ModelLoader3D extends Node3d {
       blendAnim.targetWeight = weight;
     }
   }
-  
+
   /**
    * 清除所有混合动画
    */
@@ -627,11 +718,11 @@ export class ModelLoader3D extends Node3d {
     for (const [_, blendAnim] of this.blendAnimations) {
       blendAnim.action.stop();
     }
-    
+
     this.blendAnimations.clear();
     this.isBlending = false;
   }
-  
+
   /**
    * 将动画添加到队列
    * @param name 动画名称
@@ -639,13 +730,13 @@ export class ModelLoader3D extends Node3d {
    */
   queueAnimation(name: string, options: AnimationOptions = {}): void {
     this.animationQueue.push({ name, options });
-    
+
     // 如果当前没有动画在播放且没有在处理队列，开始处理队列
     if (!this.isPlaying && !this.isProcessingQueue) {
       this.processAnimationQueue();
     }
   }
-  
+
   /**
    * 清空动画队列
    */
@@ -653,7 +744,7 @@ export class ModelLoader3D extends Node3d {
     this.animationQueue = [];
     this.isProcessingQueue = false;
   }
-  
+
   /**
    * 处理动画队列
    */
@@ -662,30 +753,30 @@ export class ModelLoader3D extends Node3d {
       this.isProcessingQueue = false;
       return;
     }
-    
+
     this.isProcessingQueue = true;
-    
+
     const nextAnim = this.animationQueue.shift()!;
-    
+
     // 创建新的选项对象，添加队列处理回调
     const options: AnimationOptions = { ...nextAnim.options };
-    
+
     // 保存原始的onEnd回调
     const originalOnEnd = options.onEnd;
-    
+
     // 添加队列处理回调
     options.onEnd = () => {
       // 调用原始回调
       if (originalOnEnd) originalOnEnd();
-      
+
       // 处理下一个动画
       setTimeout(() => this.processAnimationQueue(), 0);
     };
-    
+
     // 播放动画
     this.playAnimation(nextAnim.name, options);
   }
-  
+
   /**
    * 创建动画剪辑
    * @param name 动画名称
@@ -706,7 +797,7 @@ export class ModelLoader3D extends Node3d {
       this.currentAction.paused = true;
       this.isPlaying = false;
     }
-    
+
     // 暂停所有混合动画
     if (this.isBlending) {
       for (const [_, blendAnim] of this.blendAnimations) {
@@ -723,7 +814,7 @@ export class ModelLoader3D extends Node3d {
       this.currentAction.paused = false;
       this.isPlaying = true;
     }
-    
+
     // 恢复所有混合动画
     if (this.isBlending) {
       for (const [_, blendAnim] of this.blendAnimations) {
@@ -741,7 +832,7 @@ export class ModelLoader3D extends Node3d {
       this.currentAction = null;
       this.isPlaying = false;
     }
-    
+
     // 清除所有混合动画
     this.clearBlendAnimations();
   }
@@ -755,7 +846,7 @@ export class ModelLoader3D extends Node3d {
     if (this.currentAction) {
       this.currentAction.timeScale = speed;
     }
-    
+
     // 设置所有混合动画的速度
     if (this.isBlending) {
       for (const [_, blendAnim] of this.blendAnimations) {
@@ -824,7 +915,7 @@ export class ModelLoader3D extends Node3d {
     if (!this.currentAction) return null;
     return this.currentAction.getClip().name;
   }
-  
+
   /**
    * 获取当前状态名称
    */
@@ -848,7 +939,7 @@ export class ModelLoader3D extends Node3d {
     if (this.modelPath === path) {
       return;
     }
-    
+
     this.modelPath = path;
     this.loadModel(path);
   }
@@ -866,14 +957,14 @@ export class ModelLoader3D extends Node3d {
     let speed: number = this.animationSpeed;
     let isPlaying: boolean = false;
     let currentItemIndex: number = 0;
-    
+
     // 当前序列是否正在运行
     const isSequenceActive = () => this.activeSequences.has(sequenceId);
-    
+
     // 播放下一个序列项
     const playNextItem = () => {
       if (!isPlaying || !isSequenceActive()) return;
-      
+
       if (currentItemIndex >= items.length) {
         if (repeatCount === 0) {
           // 序列完成
@@ -883,18 +974,18 @@ export class ModelLoader3D extends Node3d {
         } else {
           // 重复序列
           if (repeatCount > 0) repeatCount--;
-          
+
           if (yoyoEnabled) {
             // 反向播放
             items.reverse();
           }
-          
+
           currentItemIndex = 0;
         }
       }
-      
+
       const item = items[currentItemIndex++];
-      
+
       switch (item.type) {
         case 'animation':
           if (item.name) {
@@ -909,7 +1000,7 @@ export class ModelLoader3D extends Node3d {
             });
           }
           break;
-          
+
         case 'delay':
           if (item.duration) {
             setTimeout(() => {
@@ -919,7 +1010,7 @@ export class ModelLoader3D extends Node3d {
             }, item.duration * 1000);
           }
           break;
-          
+
         case 'function':
           if (item.callback) {
             item.callback();
@@ -929,7 +1020,7 @@ export class ModelLoader3D extends Node3d {
           break;
       }
     };
-    
+
     // 创建控制器
     const controller: AnimationController = {
       play: () => {
@@ -941,20 +1032,20 @@ export class ModelLoader3D extends Node3d {
         }
         return controller;
       },
-      
+
       pause: () => {
         isPlaying = false;
         this.pauseAnimation();
         return controller;
       },
-      
+
       stop: () => {
         isPlaying = false;
         this.activeSequences.delete(sequenceId);
         this.stopAnimation();
         return controller;
       },
-      
+
       setSpeed: (newSpeed) => {
         speed = newSpeed;
         if (this.currentAction) {
@@ -962,12 +1053,12 @@ export class ModelLoader3D extends Node3d {
         }
         return controller;
       },
-      
+
       onComplete: (callback) => {
         completeCallbacks.push(callback);
         return controller;
       },
-      
+
       chain: (animation, options) => {
         if (typeof animation === 'string') {
           // 添加动画项
@@ -991,7 +1082,7 @@ export class ModelLoader3D extends Node3d {
         }
         return controller;
       },
-      
+
       delay: (seconds) => {
         items.push({
           type: 'delay',
@@ -999,7 +1090,7 @@ export class ModelLoader3D extends Node3d {
         });
         return controller;
       },
-      
+
       then: (callback) => {
         items.push({
           type: 'function',
@@ -1007,22 +1098,22 @@ export class ModelLoader3D extends Node3d {
         });
         return controller;
       },
-      
+
       repeat: (times) => {
         repeatCount = times;
         return controller;
       },
-      
+
       yoyo: (enabled = true) => {
         yoyoEnabled = enabled;
         return controller;
       }
     };
-    
+
     this.sequenceControllers.set(sequenceId, controller);
     return controller;
   }
-  
+
   /**
    * 设置动画序列是否可中断
    * @param value 是否可中断
@@ -1030,7 +1121,7 @@ export class ModelLoader3D extends Node3d {
   setInterruptible(value: boolean): void {
     this.interruptible = value;
   }
-  
+
   /**
    * 停止所有动画序列
    */
@@ -1038,7 +1129,7 @@ export class ModelLoader3D extends Node3d {
     this.sequenceControllers.forEach(controller => controller.stop());
     this.activeSequences.clear();
   }
-  
+
   /**
    * 在指定的延迟后执行动画
    * @param name 动画名称
@@ -1050,10 +1141,10 @@ export class ModelLoader3D extends Node3d {
     const timeoutId = window.setTimeout(() => {
       this.playAnimation(name, options);
     }, delay * 1000);
-    
+
     return timeoutId;
   }
-  
+
   /**
    * 取消延迟的动画播放
    * @param id 延迟ID
@@ -1061,7 +1152,7 @@ export class ModelLoader3D extends Node3d {
   cancelDelayedAnimation(id: number): void {
     window.clearTimeout(id);
   }
-  
+
   /**
    * 一次性播放多个动画（交叉淡入淡出）
    * @param animations 动画名称和选项的数组
@@ -1073,13 +1164,13 @@ export class ModelLoader3D extends Node3d {
         console.warn(`动画 "${name}" 未找到`);
         return;
       }
-      
+
       if (!this.mixer) return;
-      
+
       const action = this.mixer.clipAction(clip);
       action.reset();
       action.play();
-      
+
       // 应用选项
       if (options) {
         if (options.loop !== undefined) {
@@ -1090,7 +1181,7 @@ export class ModelLoader3D extends Node3d {
         }
       }
     });
-    
+
     // 淡入第一个动画
     if (animations.length > 0) {
       const firstAnim = animations[0];
@@ -1101,10 +1192,10 @@ export class ModelLoader3D extends Node3d {
         this.currentAction = action;
       }
     }
-    
+
     this.isPlaying = true;
   }
-  
+
   /**
    * 覆盖销毁方法，添加清理动画序列的逻辑
    */
@@ -1112,7 +1203,7 @@ export class ModelLoader3D extends Node3d {
     // 停止所有动画序列
     this.stopAllSequences();
     this.sequenceControllers.clear();
-    
+
     // 调用原方法
     this.stopAnimation();
     if (this.mixer) {
@@ -1120,7 +1211,7 @@ export class ModelLoader3D extends Node3d {
       this.mixer.uncacheRoot(this.model);
       this.mixer = null;
     }
-    
+
     // 清除状态和事件
     this.states.clear();
     this.animationEvents.clear();
@@ -1128,7 +1219,7 @@ export class ModelLoader3D extends Node3d {
     this.parameterTriggers.clear();
     this.animationLayers.clear();
     this.animationQueue = [];
-    
+
     if (this.model) {
       this.getThreeObject().remove(this.model);
     }
@@ -1139,41 +1230,41 @@ export class ModelLoader3D extends Node3d {
    */
   override update(deltaTime: number): void {
     super.update(deltaTime);
-    
+
     // 更新动画混合器
     if (this.mixer && (this.isPlaying || this.isBlending)) {
       this.mixer.update(deltaTime);
-      
+
       // 更新混合动画权重
       if (this.isBlending) {
         let allReachedTarget = true;
-        
+
         for (const [_, blendAnim] of this.blendAnimations) {
           if (blendAnim.weight !== blendAnim.targetWeight) {
             // 平滑过渡权重
             const weightDiff = blendAnim.targetWeight - blendAnim.weight;
             const step = Math.sign(weightDiff) * Math.min(Math.abs(weightDiff), deltaTime * 3);
-            
+
             blendAnim.weight += step;
             blendAnim.action.setEffectiveWeight(blendAnim.weight);
-            
+
             if (Math.abs(blendAnim.targetWeight - blendAnim.weight) > 0.001) {
               allReachedTarget = false;
             }
           }
         }
-        
+
         // 如果所有权重都达到目标，检查是否应该停止混合
         if (allReachedTarget) {
           let hasActiveBlend = false;
-          
+
           for (const [_, blendAnim] of this.blendAnimations) {
             if (blendAnim.weight > 0) {
               hasActiveBlend = true;
               break;
             }
           }
-          
+
           if (!hasActiveBlend) {
             this.isBlending = false;
           }

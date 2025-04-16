@@ -14,19 +14,20 @@ import { GradientCurve } from '../core/ParticleSystem/Curves/GradientCurve';
  * 粒子系统示例
  * 展示如何创建和使用粒子系统
  */
-export async function runParticleExample(canvas: HTMLCanvasElement): Promise<Engine> {
+export async function runParticleExample(): Promise<Engine> {
   // 创建引擎实例
-  const engine = await new Engine(canvas).init({
+  const engine = await new Engine().init({
     showDefaultUI: true,
     showHelpers: true,
     addDefaultLights: true,
     useWebGPU: false
   });
 
-  // 创建场景
-  const scene = new Scene('粒子示例场景');
+  // 创建场景 - 使用唯一的场景名称，包含时间戳避免冲突
+  const sceneName = `粒子示例场景_${Date.now()}`;
+  const scene = new Scene(sceneName);
   engine.addScene(scene);
-  engine.activateScene('粒子示例场景');
+  engine.activateScene(sceneName);
 
   // 创建相机
   const camera = new CameraNode3D('主相机', 75, 0.1, 1000, {
@@ -46,23 +47,25 @@ export async function runParticleExample(canvas: HTMLCanvasElement): Promise<Eng
   ground.getThreeObject().add(groundMesh);
   scene.addNode(ground);
 
-  // 创建基础粒子系统
-  createBasicParticleSystem(scene);
+  // // 创建基础粒子系统
+  // createBasicParticleSystem(scene);
 
-  // 创建火焰粒子系统
-  createFireParticleSystem(scene);
+  // // 创建火焰粒子系统
+  // createFireParticleSystem(scene);
 
-  // 创建烟雾粒子系统
-  createSmokeParticleSystem(scene);
+  // // 创建烟雾粒子系统
+  // createSmokeParticleSystem(scene);
 
   // 创建魔法粒子系统
-  createMagicParticleSystem(scene);
+  // createMagicParticleSystem(scene);
 
-  // 创建雪花粒子系统
-  createSnowParticleSystem(scene);
+  createSwordTrailEffect(scene)
 
-  // 创建自定义网格粒子系统
-  createCustomMeshParticleSystem(scene);
+  // // 创建雪花粒子系统
+  // createSnowParticleSystem(scene);
+
+  // // 创建自定义网格粒子系统
+  // createCustomMeshParticleSystem(scene);
 
   // 启动引擎
   engine.start();
@@ -85,7 +88,7 @@ function createBasicParticleSystem(scene: Scene): void {
     duration: 5.0,
     loop: true,
     startLifetime: new MinMaxCurve(2.0, 4.0),
-    startSpeed: new MinMaxCurve(1.0, 3.0),
+    startSpeed: new MinMaxCurve(3.0, 5.0),
     startSize: new MinMaxCurve(0.1, 0.3),
     startColor: new ColorCurve(
       new THREE.Color(0.8, 0.8, 1.0),
@@ -120,6 +123,9 @@ function createBasicParticleSystem(scene: Scene): void {
   // 添加到场景
   scene.addNode(particleSystem);
 
+  // 播放粒子系统 - 这一步很重要
+  particleSystem.play();
+
   // 添加标签
   addLabel('基础粒子', particleSystem.position.clone().add(new THREE.Vector3(0, -1, 0)), scene);
 }
@@ -139,7 +145,7 @@ function createFireParticleSystem(scene: Scene): void {
     duration: 5.0,
     loop: true,
     startLifetime: new MinMaxCurve(0.5, 1.5),
-    startSpeed: new MinMaxCurve(1.0, 2.0),
+    startSpeed: new MinMaxCurve(3.0, 5.0),
     startSize: new MinMaxCurve(0.5, 1.0),
     startRotation: new MinMaxCurve(0, Math.PI * 2),
     startColor: new ColorCurve(
@@ -184,6 +190,9 @@ function createFireParticleSystem(scene: Scene): void {
   // 添加到场景
   scene.addNode(particleSystem);
 
+  // 播放粒子系统
+  particleSystem.play();
+
   // 添加标签
   addLabel('火焰粒子', particleSystem.position.clone().add(new THREE.Vector3(0, -1, 0)), scene);
 }
@@ -203,7 +212,7 @@ function createSmokeParticleSystem(scene: Scene): void {
     duration: 5.0,
     loop: true,
     startLifetime: new MinMaxCurve(3.0, 5.0),
-    startSpeed: new MinMaxCurve(0.5, 1.0),
+    startSpeed: new MinMaxCurve(2.0, 3.0),
     startSize: new MinMaxCurve(0.5, 1.0),
     startRotation: new MinMaxCurve(0, Math.PI * 2),
     startColor: new ColorCurve(
@@ -249,6 +258,9 @@ function createSmokeParticleSystem(scene: Scene): void {
   // 添加到场景
   scene.addNode(particleSystem);
 
+  // 播放粒子系统
+  particleSystem.play();
+
   // 添加标签
   addLabel('烟雾粒子', particleSystem.position.clone().add(new THREE.Vector3(0, -1, 0)), scene);
 }
@@ -259,7 +271,7 @@ function createSmokeParticleSystem(scene: Scene): void {
 function createMagicParticleSystem(scene: Scene): void {
   // 创建粒子系统节点
   const particleSystem = new ParticleSystem('魔法粒子系统');
-
+  const BoxMesh = new THREE.BoxGeometry(10, 10, 10)
   // 设置位置
   particleSystem.position.set(4, 1, 0);
 
@@ -268,7 +280,7 @@ function createMagicParticleSystem(scene: Scene): void {
     duration: 5.0,
     loop: true,
     startLifetime: new MinMaxCurve(1.0, 2.0),
-    startSpeed: new MinMaxCurve(0.5, 1.5),
+    startSpeed: new MinMaxCurve(2.0, 3.0),
     startSize: new MinMaxCurve(0.1, 0.2),
     startRotation: new MinMaxCurve(0, Math.PI * 2),
     startColor: new ColorCurve(
@@ -295,23 +307,129 @@ function createMagicParticleSystem(scene: Scene): void {
     ]),
     colorOverLifetime: new ColorCurve(
       new THREE.Color(0.5, 0.0, 1.0),
-      new THREE.Color(0.0, 0.5, 1.0, 0) // 透明度为0的蓝色
+      new THREE.Color(0.0, 0.5, 1.0,) // 透明度为0的蓝色
     ),
     renderer: {
-      renderMode: 'Billboard',
+      renderMode: 'Mesh',
+      mesh: BoxMesh,
+      material: new THREE.MeshBasicMaterial({ color: new THREE.Color('red') }),
       blending: true,
       blendMode: THREE.AdditiveBlending
     }
   };
-
+  particleSystem.setCustomMesh(BoxMesh)
   // 应用设置
   particleSystem.setSettings(settings);
-
+  // particleSystem.setCustomMesh(BoxMesh)
   // 添加到场景
   scene.addNode(particleSystem);
 
+  // 播放粒子系统
+  particleSystem.play();
+
   // 添加标签
   addLabel('魔法粒子', particleSystem.position.clone().add(new THREE.Vector3(0, -1, 0)), scene);
+}
+
+function createSwordTrailEffect(scene) {
+// 创建刀光粒子系统
+const particleSystem = new ParticleSystem('永久刀光');
+  
+// 设置位置
+particleSystem.position.set(0, 1, 0);
+//平着
+particleSystem.rotation.set(Math.PI / 2, 0, 0);
+
+// 创建刀光网格 - 使用平面几何体
+const trailMesh = new THREE.PlaneGeometry(2, 0.5);
+
+// 创建刀光材质
+const trailMaterial = new THREE.MeshBasicMaterial({
+  map: createGradientTexture(),
+  transparent: true,
+  side: THREE.DoubleSide,
+  blending: THREE.AdditiveBlending
+});
+
+// 配置粒子系统为永久模式
+const settings = {
+  loop: true,
+  startLifetime: new MinMaxCurve(3600, 3600),  // 1小时生命周期
+  startSpeed: new MinMaxCurve(0, 0),
+  startSize: new MinMaxCurve(1.0, 1.0),
+  startRotation: new MinMaxCurve(0, 0),
+  startColor: new ColorCurve(
+    new THREE.Color(1.0, 0.5, 0.2),
+    new THREE.Color(1.0, 0.5, 0.2)
+  ),
+  emission: {
+    rateOverTime: 0.01  // 极低的发射率
+  },
+  maxParticles: 1,  // 最多只有1个粒子
+  shape: {
+    type: 'Point',
+    randomizeDirection: true,
+      directionScale: 1.0
+  },
+  // 固定大小
+  sizeOverLifetime: new GradientCurve([
+    { time: 0, value: 1.0 },
+    { time: 1.0, value: 1.0 }
+  ]),
+  // 固定颜色
+  colorOverLifetime: new ColorCurve(
+    new THREE.Color(1.0, 0.5, 0.2),
+    new THREE.Color(1.0, 0.5, 0.2)
+  ),
+  // 持续旋转
+  rotationOverLifetime: new MinMaxCurve(0.5, 0.5),
+  renderer: {
+    renderMode: 'Mesh',
+    mesh: trailMesh,
+    material: trailMaterial,
+    blending: true,
+    blendMode: THREE.AdditiveBlending
+  }
+};
+
+// 应用设置
+particleSystem.setSettings(settings);
+
+// 设置自定义网格和材质
+particleSystem.setCustomMesh(trailMesh);
+particleSystem.setCustomMaterial(trailMaterial);
+
+// 添加到场景
+scene.addNode(particleSystem);
+
+// 播放粒子系统
+particleSystem.play();
+
+return particleSystem;
+}
+
+// 创建渐变纹理
+function createGradientTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  
+  const ctx = canvas.getContext('2d');
+  
+  // 创建水平渐变
+  const gradient = ctx.createLinearGradient(0, 0, 256, 0);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+  gradient.addColorStop(0.1, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(0.9, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 256, 64);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  
+  return texture;
 }
 
 /**
@@ -329,7 +447,7 @@ function createSnowParticleSystem(scene: Scene): void {
     duration: 5.0,
     loop: true,
     startLifetime: new MinMaxCurve(5.0, 8.0),
-    startSpeed: new MinMaxCurve(0.5, 1.0),
+    startSpeed: new MinMaxCurve(2.0, 3.0),
     startSize: new MinMaxCurve(0.05, 0.15),
     startRotation: new MinMaxCurve(0, Math.PI * 2),
     startColor: new ColorCurve(
@@ -366,11 +484,16 @@ function createSnowParticleSystem(scene: Scene): void {
     }
   };
 
+
   // 应用设置
   particleSystem.setSettings(settings);
 
+
   // 添加到场景
   scene.addNode(particleSystem);
+
+  // 播放粒子系统
+  particleSystem.play();
 
   // 添加标签
   addLabel('雪花粒子', particleSystem.position.clone().add(new THREE.Vector3(0, -6, 0)), scene);
@@ -384,17 +507,17 @@ function createCustomMeshParticleSystem(scene: Scene): void {
   const particleSystem = new ParticleSystem('自定义模型粒子系统');
 
   // 设置位置
-  particleSystem.position.set(0, 1, 4);
+  particleSystem.position.set(0, 3, 4);
 
   // 默认使用简单几何体，稍后会被模型替换
-  const defaultMesh = new THREE.IcosahedronGeometry(0.1, 0);
+  const defaultMesh = new THREE.BoxGeometry(0.1, 0.1, 0.1, 0);
 
   // 配置粒子系统 - 向外溢出效果
   const settings: Partial<ParticleSystemSettings> = {
     duration: 5.0,
     loop: true,
     startLifetime: new MinMaxCurve(2.0, 3.0), // 生命周期缩短，使效果更动态
-    startSpeed: new MinMaxCurve(1.0, 2.0),    // 增大速度，使粒子向外溢出更快
+    startSpeed: new MinMaxCurve(3.0, 5.0),    // 增大速度，使粒子向外溢出更快
     startSize: new MinMaxCurve(0.2, 0.3),      // 保持粒子大小适中
     startRotation: new MinMaxCurve(0, Math.PI * 2), // 随机旋转
     startColor: new ColorCurve(
@@ -435,46 +558,49 @@ function createCustomMeshParticleSystem(scene: Scene): void {
   particleSystem.setSettings(settings);
 
   // 设置默认网格
-  particleSystem.setCustomMesh(defaultMesh);
+  // particleSystem.setCustomMesh(defaultMesh);
 
   // 添加到场景
   scene.addNode(particleSystem);
 
+  // 播放粒子系统
+  particleSystem.play();
+
   // 添加标签
   addLabel('模型粒子效果', particleSystem.position.clone().add(new THREE.Vector3(0, -1, 0)), scene);
 
-  // 使用ModelLoader3D加载模型作为粒子
-  const modelLoader = new ModelLoader3D('粒子模型', '../public/models/toy_terror_chogath.glb');
+  // // 使用ModelLoader3D加载模型作为粒子
+  // const modelLoader = new ModelLoader3D('粒子模型', '../public/models/toy_terror_chogath.glb');
 
-  // 设置模型加载完成后的回调
-  modelLoader.setOnLoaded((loadedModel: THREE.Group) => {
-    console.log('模型加载成功，正在提取几何体...');
+  // // 设置模型加载完成后的回调
+  // modelLoader.setOnLoaded((loadedModel: THREE.Group) => {
+  //   console.log('模型加载成功，正在提取几何体...');
 
-    // 遍历模型查找第一个网格
-    let modelGeometry: THREE.BufferGeometry | null = null;
+  //   // 遍历模型查找第一个网格
+  //   let modelGeometry: THREE.BufferGeometry | null = null;
 
-    loadedModel.traverse((child: THREE.Object3D) => {
-      if (child instanceof THREE.Mesh && !modelGeometry) {
-        modelGeometry = child.geometry;
-        console.log('找到模型网格:', child.name);
-      }
-    });
+  //   loadedModel.traverse((child: THREE.Object3D) => {
+  //     if (child instanceof THREE.Mesh && !modelGeometry) {
+  //       modelGeometry = child.geometry;
+  //       console.log('找到模型网格:', child.name);
+  //     }
+  //   });
 
-    if (modelGeometry) {
-      // 设置粒子系统使用这个模型网格
-      particleSystem.setCustomMesh(modelGeometry);
-      console.log('模型网格已应用到粒子系统');
+  //   if (modelGeometry) {
+  //     // 设置粒子系统使用这个模型网格
+  //     // particleSystem.setCustomMesh(modelGeometry);
+  //     // console.log('模型网格已应用到粒子系统');
 
-      // 可以选择不显示原始模型
-      modelLoader.getThreeObject().visible = true;
-    } else {
-      console.warn('无法从模型中提取网格');
-    }
-  });
+  //     // // 可以选择不显示原始模型
+  //     // modelLoader.getThreeObject().visible = true;
+  //   } else {
+  //     console.warn('无法从模型中提取网格');
+  //   }
+  // });
 
-  // 将模型加载器添加到场景中，但位置设置在其他地方
-  modelLoader.setPosition(0, 4, 0); // 将模型放在视野外，只用于提取几何体
-  scene.addNode(modelLoader);
+  // // 将模型加载器添加到场景中，但位置设置在其他地方
+  // modelLoader.setPosition(0, 4, 0); // 将模型放在视野外，只用于提取几何体
+  // scene.addNode(modelLoader);
 }
 
 /**
@@ -509,3 +635,5 @@ function addLabel(text: string, position: THREE.Vector3, scene: Scene): void {
     scene.addNode(label);
   }
 }
+
+runParticleExample()

@@ -248,37 +248,20 @@ export default class Engine {
     }
   }
 
-  // 修改 dispose 方法确保正确清理事件监听器
-  public dispose(): void {
+  // 停止引擎循环
+  public stop(): void {
+    console.log('停止引擎循环');
     // 停止动画循环
-    this.clock.stop();
-
-    // 清理渲染器
-    if (this.renderer instanceof THREE.WebGLRenderer) {
-      this.renderer.dispose();
-    } else {
-      this.renderer.dispose();
+    if (this.clock) {
+      try {
+        this.clock.stop();
+      } catch (e) {
+        console.warn('停止时钟失败:', e);
+      }
     }
 
-    // 移除事件监听
-    window.removeEventListener('resize', this.boundOnWindowResize);
-
-    // 清理场景
-    this.scenes.forEach(scene => {
-      scene.dispose();
-    });
-    this.scenes.clear();
-
-    // 清理 UI 组件
-    this.uiComponents.forEach(component => {
-      if (component.parentElement) {
-        component.parentElement.removeChild(component);
-      }
-    });
-    this.uiComponents.clear();
-
-    // 重置实例
-    Engine.instance = null;
+    // 标记引擎已停止
+    this.isRunning = false;
   }
 
   public setScene(scene: Scene): void {
@@ -425,15 +408,33 @@ export default class Engine {
 
   // 添加场景到引擎并处理生命周期
   public addScene(scene: Scene): void {
-    if (this.scenes.has(scene.getName())) {
-      throw new Error(`场景 ${scene.getName()} 已存在`);
+    const sceneName = scene.getName();
+
+    // 如果场景已存在，先尝试移除
+    if (this.scenes.has(sceneName)) {
+      console.warn(`场景 ${sceneName} 已存在，尝试移除并重新创建`);
+      try {
+        // 如果场景已激活，先停用
+        if (this.activeScenes.has(sceneName)) {
+          this.deactivateScene(sceneName);
+        }
+
+        // 移除场景
+        this.removeScene(sceneName);
+      } catch (error) {
+        console.error(`移除现有场景 ${sceneName} 失败:`, error);
+        throw new Error(`场景 ${sceneName} 已存在且无法移除`);
+      }
     }
 
-    this.scenes.set(scene.getName(), scene);
+    // 添加新场景
+    this.scenes.set(sceneName, scene);
 
     // 确保根节点的 onReady 被调用
     const rootNode = scene.getRootNode();
     rootNode.onReady();
+
+    console.log(`场景 ${sceneName} 添加成功`);
   }
 
   /**
@@ -674,17 +675,129 @@ export default class Engine {
     }
   }
 
-  // 重置引擎状态
+  /**
+   * 重置引擎状态
+   * 清除所有场景和资源
+   */
   public reset(): void {
-    // 清除所有场景
-    this.scenes.clear();
+    console.log('重置引擎状态');
 
-    // 重置其他状态
-    this.activeScenes.clear();
+    try {
+      // 停止所有活动场景
+      this.activeScenes.forEach(sceneName => {
+        try {
+          this.deactivateScene(sceneName);
+        } catch (e) {
+          console.warn(`停用场景 ${sceneName} 失败:`, e);
+        }
+      });
 
-    // 重置渲染器状态
-    this.renderer.setSize(this.canvas.width, this.canvas.height);
-    this.renderer.clear();
+      // 清除所有场景
+      this.scenes.clear();
+
+      // 重置其他状态
+      this.activeScenes.clear();
+
+      // 重置渲染器状态
+      if (this.renderer) {
+        try {
+          if (typeof this.renderer.setSize === 'function') {
+            this.renderer.setSize(this.canvas.width, this.canvas.height);
+          }
+          if (typeof this.renderer.clear === 'function') {
+            this.renderer.clear();
+          }
+        } catch (e) {
+          console.warn('重置渲染器失败:', e);
+        }
+      }
+
+      // 清除包围盒辅助器
+      this.removeBoundingBoxHelpers();
+
+      console.log('引擎重置成功');
+    } catch (error) {
+      console.error('重置引擎状态失败:', error);
+    }
+  }
+
+  /**
+   * 释放引擎资源
+   * 在不再需要引擎时调用此方法清理所有资源
+   */
+  public dispose(): void {
+    console.log('开始释放引擎资源');
+
+    try {
+      // 停止引擎循环
+      this.stop();
+
+      // 重置引擎状态
+      this.reset();
+
+      // 清理物理引擎
+      if (this.physics) {
+        try {
+          // 安全地检查物理引擎是否有dispose方法
+          const physicsAny = this.physics as any;
+          if (physicsAny && typeof physicsAny.dispose === 'function') {
+            physicsAny.dispose();
+          }
+        } catch (e) {
+          console.warn('清理物理引擎失败:', e);
+        }
+      }
+
+      // 清理渲染器
+      if (this.renderer) {
+        try {
+          // 安全地检查渲染器是否有dispose方法
+          const rendererAny = this.renderer as any;
+          if (rendererAny && typeof rendererAny.dispose === 'function') {
+            rendererAny.dispose();
+          } else if (this.renderer instanceof THREE.WebGLRenderer) {
+            this.renderer.dispose();
+          }
+        } catch (e) {
+          console.warn('清理渲染器失败:', e);
+        }
+      }
+
+      // 清理事件监听器
+      try {
+        // 安全地移除事件监听器
+        if (this.boundOnWindowResize) {
+          window.removeEventListener('resize', this.boundOnWindowResize);
+        }
+      } catch (e) {
+        console.warn('清理事件监听器失败:', e);
+      }
+
+      // 清理UI组件
+      this.uiComponents.forEach((component) => {
+        if (component.parentElement) {
+          component.parentElement.removeChild(component);
+        }
+      });
+      this.uiComponents.clear();
+
+      // 清理DOM中的引擎相关元素
+      const engineUIs = document.querySelectorAll('.engine-ui');
+      engineUIs.forEach(ui => {
+        if (ui.parentElement) {
+          ui.parentElement.removeChild(ui);
+        }
+      });
+
+      // 重置引擎实例
+      if (typeof Engine.instance !== 'undefined') {
+        Engine.instance = null;
+      }
+
+      console.log('引擎资源释放成功');
+    } catch (error) {
+      console.error('释放引擎资源失败:', error);
+    }
   }
 
   // 创建默认场景
