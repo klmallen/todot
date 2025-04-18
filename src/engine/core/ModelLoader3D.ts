@@ -90,7 +90,11 @@ interface AnimationController {
   icon: 'model',
   category: 'Renderable'
 })
-export class ModelLoader3D extends Node3d {
+export class ModelLoader3D extends Node3d implements PromiseLike<THREE.Group> {
+  // 添加一个Promise来跟踪模型加载状态
+  private modelLoadPromise: Promise<THREE.Group>;
+  private modelResolve: ((model: THREE.Group) => void) | null = null;
+  private modelReject: ((error: any) => void) | null = null;
 
   public model: THREE.Group | null = null;
   private gltfLoader: GLTFLoader;
@@ -157,10 +161,35 @@ export class ModelLoader3D extends Node3d {
     super(name, options);
     this.gltfLoader = new GLTFLoader();
     this.fbxLoader = new FBXLoader();
+    
+    // 创建Promise
+    this.modelLoadPromise = new Promise<THREE.Group>((resolve, reject) => {
+      this.modelResolve = resolve;
+      this.modelReject = reject;
+    });
+    
     if (modelPath) {
-      this.modelPath = modelPath; // 仅设置路径，不调用loadModel
-      this.loadModel(modelPath);  // 只调用一次loadModel
+      this.modelPath = modelPath;
+      this.loadModel(modelPath);
     }
+  }
+
+  /**
+   * 实现PromiseLike接口
+   */
+  then<TResult1 = THREE.Group, TResult2 = never>(
+    onfulfilled?: ((value: THREE.Group) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
+  ): PromiseLike<TResult1 | TResult2> {
+    return this.modelLoadPromise.then(onfulfilled, onrejected);
+  }
+
+  /**
+   * 等待模型加载完成
+   * @returns 加载完成的模型对象
+   */
+  public async waitForLoad(): Promise<THREE.Group> {
+    return this.modelLoadPromise;
   }
 
   /**
@@ -234,7 +263,12 @@ export class ModelLoader3D extends Node3d {
         if (this.onLoadedCallback && this.model) {
           this.onLoadedCallback(this.model);
         }
-
+        
+        // 解析Promise
+        if (this.modelResolve && this.model) {
+          this.modelResolve(this.model);
+        }
+        
         // 如果有默认状态，自动播放
         if (this.defaultState) {
           this.transitionTo(this.defaultState);
@@ -243,6 +277,10 @@ export class ModelLoader3D extends Node3d {
       undefined,
       (error) => {
         console.error('GLTF模型加载失败:', error);
+        // 拒绝Promise
+        if (this.modelReject) {
+          this.modelReject(error);
+        }
       }
     );
   }
@@ -252,15 +290,17 @@ export class ModelLoader3D extends Node3d {
    * @param path 模型文件路径
    */
   private loadFBXModel(path: string): void {
+    console.log('开始加载FBX模型:', path);
+    
     this.fbxLoader.load(
       path,
       (fbxModel) => {
         console.log('FBX模型加载成功:', fbxModel);
-
+        
         // FBX加载器直接返回Object3D，需要包装成Group
         this.model = new THREE.Group();
         this.model.add(fbxModel);
-
+        
         this.getThreeObject().add(this.model);
         this.setType('ModelLoader3D');
         this.addTag('model');
@@ -269,53 +309,146 @@ export class ModelLoader3D extends Node3d {
         // 初始化动画混合器
         if (this.model) {
           this.mixer = new THREE.AnimationMixer(this.model);
-
+          
           // 添加事件监听器
           this.mixer.addEventListener('finished', this.onAnimationFinished.bind(this));
           this.mixer.addEventListener('loop', this.onAnimationLoop.bind(this));
         }
-
+        
         // 缓存动画数据
         if (fbxModel.animations && fbxModel.animations.length > 0) {
           this.addAnimations = fbxModel.animations;
           fbxModel.animations.forEach((animation: THREE.AnimationClip) => {
             this.animations.set(animation.name, animation);
           });
-
+          
           // 输出可用动画
           const animNames = this.getAnimationNames();
           if (animNames.length > 0) {
             console.log(`模型 [${this.name}] 可用动画:`, animNames);
           }
         }
-
-        // 处理模型结构，隐藏骨骼和辅助对象
+        
+        // 处理模型结构
         this.model.traverse((object: THREE.Object3D) => {
           // 隐藏骨骼和辅助对象
-          if (object.type === 'Bone' ||
-              object.name.includes('helper') ||
+          if (object.type === 'Bone' || 
+              object.name.includes('helper') || 
               object.name.includes('Helper') ||
               object.name.includes('Skeleton') ||
               object.name.includes('Control')) {
             object.visible = false;
           }
         });
-
+        
         // 调用加载完成回调
         if (this.onLoadedCallback && this.model) {
+          console.log('调用模型加载完成回调');
           this.onLoadedCallback(this.model);
         }
-
+        
+        // 解析Promise
+        if (this.modelResolve && this.model) {
+          console.log('解析模型加载Promise');
+          this.modelResolve(this.model);
+        }
+        
         // 如果有默认状态，自动播放
         if (this.defaultState) {
           this.transitionTo(this.defaultState);
         }
+        
+        // 关键部分：确保模型加载后立即渲染
+        this.ensureRender();
       },
-      undefined,
+      // 进度回调
+      (progress) => {
+        console.log(`FBX模型加载进度: ${Math.round(progress.loaded / progress.total * 100)}%`);
+      },
+      // 错误回调
       (error) => {
         console.error('FBX模型加载失败:', error);
+        // 拒绝Promise
+        if (this.modelReject) {
+          this.modelReject(error);
+        }
       }
     );
+  }
+
+  /**
+   * 确保模型加载后立即渲染
+   * 使用多种方法触发渲染更新
+   */
+  private ensureRender(): void {
+    console.log('尝试确保模型立即渲染');
+    
+    // 方法1: 使用requestAnimationFrame
+    requestAnimationFrame(() => {
+      this.forceRender();
+      
+      // 再次尝试渲染，以防第一次不成功
+      setTimeout(() => {
+        this.forceRender();
+      }, 50);
+    });
+    
+    // 方法2: 使用setTimeout
+    setTimeout(() => {
+      this.forceRender();
+    }, 16); // 约一帧的时间
+    
+    // 方法3: 连续多次尝试渲染
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        this.forceRender();
+      }, 100 * i);
+    }
+  }
+  
+  /**
+   * 强制渲染当前场景
+   */
+  private forceRender(): void {
+    try {
+      // 尝试获取引擎实例
+      const engine = (window as any).currentEngine;
+      if (engine && typeof engine.renderer?.render === 'function') {
+        console.log('强制渲染场景');
+        
+        // 尝试获取当前场景和相机
+        const activeSceneName = Array.from(engine.activeScenes)[0];
+        if (activeSceneName) {
+          const scene = engine.scenes.get(activeSceneName);
+          if (scene) {
+            const camera = scene.getActiveCamera();
+            if (camera && camera.getThreeCamera()) {
+              // 强制渲染
+              engine.renderer.render(scene.getThreeScene(), camera.getThreeCamera());
+              console.log('场景已强制渲染');
+              
+              // 标记材质需要更新
+              scene.getThreeScene().traverse((object) => {
+                if (object instanceof THREE.Mesh && object.material) {
+                  if (Array.isArray(object.material)) {
+                    object.material.forEach(mat => mat.needsUpdate = true);
+                  } else {
+                    object.material.needsUpdate = true;
+                  }
+                }
+              });
+            }
+          }
+        }
+        
+        // 尝试调用引擎的update方法
+        if (typeof engine.update === 'function') {
+          engine.update(0.016); // 模拟一帧的更新
+        }
+      }
+    } catch (error) {
+      console.warn('强制渲染失败:', error);
+    }
   }
 
   /**
@@ -1282,3 +1415,5 @@ export class ModelLoader3D extends Node3d {
     return json;
   }
 }
+
+

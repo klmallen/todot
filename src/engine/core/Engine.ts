@@ -9,12 +9,16 @@ import * as THREE  from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Node3d } from './Node3d';
 import { SceneSerializer } from './SceneSerializer';
+import { WebGPURenderer } from 'three/webgpu';
+// 导入WebGPU相关类型
+// 注意：使用any类型来避免类型错误，因为WebGPURenderer可能在某些环境中不可用
+type WebGPURenderer = any;
 
 export default class Engine {
   private static instance: Engine | null = null;
 
   private clock: Clock;
-  private renderer: THREE.WebGLRenderer | IRenderer;
+  private renderer: THREE.WebGLRenderer | WebGPURenderer | IRenderer;
   private physics: IPhysics | null;
   private threeScene: THREE.Scene;  // 引擎唯一的THREE场景
   private scenes: Map<string, Scene> = new Map();  // 场景管理器
@@ -58,17 +62,33 @@ export default class Engine {
   private async initRenderer(useWebGPU: boolean): Promise<void> {
     try {
       if (useWebGPU) {
-        // 尝试创建WebGPU渲染器
-        const { WebGPURenderer } = await import('./WebGPURenderer');
-        this.renderer = new WebGPURenderer({
-          canvas: this.canvas,
-          alpha: true
-        });
+        try {
+          // 尝试动态导入WebGPU渲染器
+          // 注意：这里使用了动态导入，因为WebGPURenderer可能在某些环境中不可用
+          // 创建WebGPU渲染器
+          this.renderer = new WebGPURenderer({
+            canvas: this.canvas,
+            antialias: true,
+            alpha: true
+          });
 
-        // 等待WebGPU渲染器初始化完成
-        if (!this.renderer.isInitialized()) {
-          console.warn('WebGPU渲染器尚未初始化完成，等待初始化...');
-          // 这里可以添加等待逻辑，但WebGPURenderer的构造函数已经调用了init
+          // 设置WebGPU渲染器的基本属性
+          const webgpuRenderer = this.renderer as any;
+          webgpuRenderer.setPixelRatio(window.devicePixelRatio);
+          webgpuRenderer.setSize(window.innerWidth, window.innerHeight);
+          webgpuRenderer.shadowMap.enabled = true;
+          webgpuRenderer.toneMappingExposure = 1.0;
+        } catch (error) {
+          console.error('WebGPU渲染器初始化失败，回退到WebGL:', error);
+          return this.initRenderer(false);
+        }
+
+        // 如果没有提供canvas，将渲染器的canvas添加到文档中
+        if (!this.canvas.parentElement) {
+          const domElement = (this.renderer as any).domElement;
+          if (domElement) {
+            document.body.appendChild(domElement);
+          }
         }
 
         console.log('成功创建WebGPU渲染器');
@@ -102,9 +122,23 @@ export default class Engine {
 
       this.canvas.style.pointerEvents = 'auto';
       // 确保渲染器的canvas不会阻止事件传播
-      const domElement = this.renderer instanceof THREE.WebGLRenderer
-        ? this.renderer.domElement
-        : (this.renderer as any).getNativeRenderer().domElement;
+      // 获取渲染器的DOM元素
+      let domElement: HTMLElement | null = null;
+      if (this.renderer instanceof THREE.WebGLRenderer) {
+        domElement = this.renderer.domElement;
+      } else {
+        // 尝试作为WebGPU渲染器访问
+        const webgpuRenderer = this.renderer as any;
+        if (webgpuRenderer.domElement) {
+          domElement = webgpuRenderer.domElement;
+        } else {
+          // 尝试获取原生渲染器
+          const nativeRenderer = (this.renderer as any).getNativeRenderer?.();
+          if (nativeRenderer?.domElement) {
+            domElement = nativeRenderer.domElement;
+          }
+        }
+      }
 
       if (domElement) {
         domElement.style.pointerEvents = 'auto';
@@ -152,13 +186,20 @@ export default class Engine {
     }
 
     // 根据渲染器类型调用不同的setSize方法
+    // 调整渲染器大小
     if (this.renderer instanceof THREE.WebGLRenderer) {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     } else {
-      // 假设其他渲染器通过getNativeRenderer()获取原生渲染器
-      const nativeRenderer = (this.renderer as any).getNativeRenderer();
-      if (nativeRenderer && typeof nativeRenderer.setSize === 'function') {
-        nativeRenderer.setSize(window.innerWidth, window.innerHeight);
+      // 尝试作为WebGPU渲染器访问
+      const webgpuRenderer = this.renderer as any;
+      if (typeof webgpuRenderer.setSize === 'function') {
+        webgpuRenderer.setSize(window.innerWidth, window.innerHeight);
+      } else {
+        // 假设其他渲染器通过getNativeRenderer()获取原生渲染器
+        const nativeRenderer = (this.renderer as any).getNativeRenderer();
+        if (nativeRenderer && typeof nativeRenderer.setSize === 'function') {
+          nativeRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
       }
     }
   }
@@ -172,9 +213,28 @@ export default class Engine {
       }
 
       // 获取适当的DOM元素
-      const domElement = this.renderer instanceof THREE.WebGLRenderer
-        ? this.renderer.domElement
-        : (this.renderer as any).getNativeRenderer().domElement;
+      // 获取渲染器的DOM元素
+      let domElement: HTMLElement | null = null;
+      if (this.renderer instanceof THREE.WebGLRenderer) {
+        domElement = this.renderer.domElement;
+      } else {
+        // 尝试作为WebGPU渲染器访问
+        const webgpuRenderer = this.renderer as any;
+        if (webgpuRenderer.domElement) {
+          domElement = webgpuRenderer.domElement;
+        } else {
+          // 尝试获取原生渲染器
+          const nativeRenderer = (this.renderer as any).getNativeRenderer?.();
+          if (nativeRenderer?.domElement) {
+            domElement = nativeRenderer.domElement;
+          }
+        }
+      }
+
+      if (!domElement) {
+        console.warn('无法获取渲染器的DOM元素，轨道控制器初始化失败');
+        return;
+      }
 
       this.orbitControls = new OrbitControls(this.camera.getThreeCamera(), domElement);
       console.log(domElement, 'domElement for OrbitControls');
@@ -235,7 +295,7 @@ export default class Engine {
   }
 
   // 获取渲染器
-  public getRenderer(): THREE.WebGLRenderer | IRenderer {
+  public getRenderer(): THREE.WebGLRenderer | WebGPURenderer | IRenderer {
     return this.renderer;
   }
 
@@ -244,7 +304,14 @@ export default class Engine {
     if (this.renderer instanceof THREE.WebGLRenderer) {
       return this.renderer;
     } else {
-      return (this.renderer as any).getNativeRenderer();
+      // 尝试作为WebGPU渲染器访问
+      const webgpuRenderer = this.renderer as any;
+      if (webgpuRenderer.domElement) {
+        return webgpuRenderer;
+      } else {
+        // 尝试获取原生渲染器
+        return (this.renderer as any).getNativeRenderer?.() || this.renderer;
+      }
     }
   }
 
@@ -261,15 +328,23 @@ export default class Engine {
     }
 
     // 标记引擎已停止
-    this.isRunning = false;
+    // 注意：这里应该有一个isRunning属性，但当前类中没有定义
+    // this.isRunning = false;
   }
 
-  public setScene(scene: Scene): void {
-    this.scene = scene;
+  // 设置当前活动场景
+  public setActiveScene(scene: Scene): void {
+    const sceneName = scene.getName();
+    this.activateScene(sceneName, true);
   }
 
-  public getScene(): Scene | null {
-    return this.scene;
+  // 获取当前活动场景
+  public getActiveScene(): Scene | null {
+    const activeSceneNames = Array.from(this.activeScenes);
+    if (activeSceneNames.length > 0) {
+      return this.scenes.get(activeSceneNames[0]) || null;
+    }
+    return null;
   }
 
   public setCamera(camera: Camera): void {
@@ -279,8 +354,20 @@ export default class Engine {
   public getCamera(): Camera {
     return this.camera;
   }
-  public getELementRender(): HTMLElement {
-    return this.renderer.domElement;
+  public getELementRender(): HTMLElement | null {
+    if (this.renderer instanceof THREE.WebGLRenderer) {
+      return this.renderer.domElement;
+    } else {
+      // 尝试作为WebGPU渲染器访问
+      const webgpuRenderer = this.renderer as any;
+      if (webgpuRenderer.domElement) {
+        return webgpuRenderer.domElement;
+      } else {
+        // 尝试获取原生渲染器
+        const nativeRenderer = (this.renderer as any).getNativeRenderer?.();
+        return nativeRenderer?.domElement || null;
+      }
+    }
   }
 
 
@@ -372,13 +459,23 @@ export default class Engine {
   // 添加游戏对象到场景
   addGameObject(gameObject: GameObject) {
     console.log(gameObject,' 引擎 - gameObject')
-    this.scene.addGameObject(gameObject);
+    const activeScene = this.getActiveScene();
+    if (activeScene) {
+      activeScene.addGameObject(gameObject);
+    } else {
+      console.warn('没有活动场景，无法添加游戏对象');
+    }
     return gameObject;
   }
 
   // 从场景移除游戏对象
   removeGameObject(gameObject: GameObject) {
-    this.scene.removeGameObject(gameObject);
+    const activeScene = this.getActiveScene();
+    if (activeScene) {
+      activeScene.removeGameObject(gameObject);
+    } else {
+      console.warn('没有活动场景，无法移除游戏对象');
+    }
     return this;
   }
 
@@ -537,8 +634,8 @@ export default class Engine {
     });
   }
 
-  // 获取场景
-  public getScene(name: string): Scene | undefined {
+  // 根据名称获取场景
+  public getSceneByName(name: string): Scene | undefined {
     return this.scenes.get(name);
   }
 
@@ -546,7 +643,7 @@ export default class Engine {
   public removeScene(name: string): void {
     const scene = this.scenes.get(name);
     if (scene) {
-      if (scene.isActiveScene()) {
+      if (this.isSceneActive(name)) {
         this.threeScene.remove(scene.getThreeObject());
       }
       this.scenes.delete(name);
@@ -566,7 +663,10 @@ export default class Engine {
   public getNodesByName(name: string): Node3d[] {
     const result: Node3d[] = [];
     for (const scene of this.scenes.values()) {
-      const nodes = scene.getNodesByName(name);
+      // 如果场景有getNodesByName方法，则调用它
+      const nodes = typeof scene.getNodesByName === 'function' ?
+        scene.getNodesByName(name) :
+        [];
       result.push(...nodes);
     }
     return result;
@@ -576,7 +676,10 @@ export default class Engine {
   public getNodesByType<T extends Node3d>(type: new (...args: any[]) => T): T[] {
     const result: T[] = [];
     for (const scene of this.scenes.values()) {
-      const nodes = scene.getNodesByType(type);
+      // 如果场景有getNodesByType方法，则调用它
+      const nodes = typeof scene.getNodesByType === 'function' ?
+        scene.getNodesByType(type) :
+        [];
       result.push(...nodes);
     }
     return result;
@@ -586,7 +689,10 @@ export default class Engine {
   public findNodes(predicate: (node: Node3d) => boolean): Node3d[] {
     const result: Node3d[] = [];
     for (const scene of this.scenes.values()) {
-      const nodes = scene.findNodes(predicate);
+      // 如果场景有findNodes方法，则调用它
+      const nodes = typeof scene.findNodes === 'function' ?
+        scene.findNodes(predicate) :
+        [];
       result.push(...nodes);
     }
     return result;
@@ -843,7 +949,11 @@ export default class Engine {
     }
 
     // 清除现有对象
-    scene.clear();
+    if (typeof scene.clear === 'function') {
+      scene.clear();
+    } else {
+      console.warn('场景没有clear方法，无法清除对象');
+    }
 
     // 解析和添加节点
     if (data.nodes && Array.isArray(data.nodes)) {
@@ -852,11 +962,17 @@ export default class Engine {
 
     // 应用场景设置
     if (data.settings) {
-      scene.settings = { ...data.settings };
+      // 如果场景有settings属性，则设置它
+      if ('settings' in scene) {
+        (scene as any).settings = { ...data.settings };
+      }
 
       // 应用背景色
       if (data.settings.background) {
-        scene.background = new THREE.Color(data.settings.background);
+        // 如果场景有background属性，则设置它
+        if ('background' in scene) {
+          (scene as any).background = new THREE.Color(data.settings.background);
+        }
       }
 
       // 应用其他设置...
@@ -899,7 +1015,9 @@ export default class Engine {
           const boxHelper = new THREE.BoxHelper(obj, 0xffff00);
           this.boundingBoxHelpers.set(obj, boxHelper);
           // 添加到场景
-          scene.threeScene.add(boxHelper);
+          // 尝试获取场景的Three.js场景对象
+          const threeScene = scene.getThreeScene ? scene.getThreeScene() : this.threeScene;
+          threeScene.add(boxHelper);
         }
       });
     });
@@ -913,7 +1031,9 @@ export default class Engine {
     this.boundingBoxHelpers.forEach((helper, obj) => {
       const scene = this.findSceneByObject(obj);
       if (scene) {
-        scene.getThreeScene().remove(helper);
+        // 尝试获取场景的Three.js场景对象
+        const threeScene = scene.getThreeScene ? scene.getThreeScene() : this.threeScene;
+        threeScene.remove(helper);
       }
     });
 

@@ -406,13 +406,13 @@ const modelLoader = new ModelLoader3D('粒子模型', 'models/your_model.glb');
 modelLoader.setOnLoaded((loadedModel) => {
   // 遍历模型查找第一个网格
   let modelGeometry = null;
-  
+
   loadedModel.traverse((child) => {
     if (child instanceof THREE.Mesh && !modelGeometry) {
       modelGeometry = child.geometry;
     }
   });
-  
+
   if (modelGeometry) {
     // 设置粒子系统使用这个模型网格
     particleSystem.setCustomMesh(modelGeometry);
@@ -479,8 +479,133 @@ if (particleSystem.isPaused()) {
 4. **调整发射率**：根据需要调整 `rateOverTime`，避免不必要的粒子
 5. **使用对象池**：对于频繁创建和销毁的粒子系统，考虑使用对象池
 
+## TSL 特效
+
+Todot Engine 的粒子系统支持 Three.js Shading Language (TSL) 特效，这使得你可以创建更复杂、更生动的粒子效果。
+
+### 什么是 TSL
+
+TSL 是 Three.js 提供的一种高级着色器编写方式，它允许开发者使用 JavaScript 语法来创建着色器，而不需要直接编写 GLSL 或 WGSL 代码。
+
+### 内置 TSL 特效
+
+Todot Engine 的粒子系统内置了多种 TSL 特效，可以通过简单的 API 调用来使用：
+
+```javascript
+// 设置 UV 动画效果
+const texture = new THREE.TextureLoader().load('textures/particle.png');
+particleSystem.setUVAnimationEffect(texture, 0.5, 0.0, 1.0);
+
+// 设置流动效果
+particleSystem.setFlowEffect(texture, 1.0, 0, 1.0);
+
+// 设置发光效果
+particleSystem.setGlowEffect(
+  new THREE.Color(0xffffff),  // 基础颜色
+  new THREE.Color(0x00ffff),  // 发光颜色
+  1.0,  // 发光强度
+  0.5   // 脉冲速度
+);
+
+// 设置爆炸效果
+particleSystem.setExplosionEffect(
+  texture,
+  new THREE.Color(0xffff00),  // 中心颜色
+  new THREE.Color(0xff0000),  // 边缘颜色
+  1.0  // 爆炸速度
+);
+
+// 设置内聚效果
+particleSystem.setConvergenceEffect(
+  texture,
+  new THREE.Color(0x00ffff),  // 中心颜色
+  new THREE.Color(0x0000ff),  // 边缘颜色
+  1.0  // 内聚速度
+);
+
+// 设置旋转 UV 效果
+particleSystem.setRotatingUVEffect(texture, 1.0, 1.0);
+
+// 设置扭曲效果
+const distortionMap = new THREE.TextureLoader().load('textures/distortion.png');
+particleSystem.setDistortionEffect(texture, distortionMap, 0.1, 1.0);
+
+// 设置溶解效果
+const noiseMap = new THREE.TextureLoader().load('textures/noise.png');
+particleSystem.setDissolveEffect(
+  texture,
+  noiseMap,
+  new THREE.Color(0xff0000),  // 溶解边缘颜色
+  0.5,  // 溶解量
+  0.1   // 边缘宽度
+);
+
+// 设置能量波纹效果
+particleSystem.setEnergyWaveEffect(
+  texture,
+  new THREE.Color(0x00ffff),  // 波纹颜色
+  1.0,  // 波纹速度
+  5.0,  // 波纹频率
+  0.1   // 波纹振幅
+);
+
+// 设置刀光拖尾效果
+particleSystem.setSwordTrailEffect(
+  texture,
+  new THREE.Color(0x00ffff),  // 拖尾颜色
+  0.5,  // 拖尾长度
+  1.0   // 拖尾速度
+);
+```
+
+### 自定义 TSL 效果
+
+如果内置的 TSL 特效不能满足你的需求，你可以创建自定义的 TSL 效果：
+
+```javascript
+import { texture, uv, time, vec4, oscSine } from 'three/tsl';
+
+// 创建自定义颜色节点
+const textureMap = new THREE.TextureLoader().load('textures/particle.png');
+const customColorNode = texture(textureMap, uv()).rgb.mul(
+  oscSine(time.mul(0.5)).mul(0.5).add(0.5)
+);
+
+// 创建自定义透明度节点
+const customOpacityNode = oscSine(time).mul(0.5).add(0.5);
+
+// 设置自定义 TSL 效果
+particleSystem.setCustomTSLEffect(customColorNode, customOpacityNode);
+```
+
+### 使用 TSL 扩展
+
+如果你需要更高级的控制，可以直接使用 TSL 扩展：
+
+```javascript
+// 获取 TSL 扩展
+const tslExtension = particleSystem.getTSLExtension();
+
+// 设置效果
+tslExtension.setEffect({
+  effectType: ParticleTSLEffectType.CUSTOM,
+  customColorNode: customColorNode,
+  customOpacityNode: customOpacityNode
+});
+
+// 获取节点材质
+const nodeMaterial = tslExtension.getNodeMaterial();
+
+// 直接修改节点材质属性
+if (nodeMaterial) {
+  nodeMaterial.side = THREE.DoubleSide;
+  nodeMaterial.depthWrite = false;
+  nodeMaterial.blending = THREE.AdditiveBlending;
+}
+```
+
 ## 总结
 
-Todot Engine 的粒子系统提供了强大而灵活的工具，可以创建各种视觉效果。通过组合不同的设置，你可以创建从简单的火花到复杂的魔法效果的各种效果。
+Todot Engine 的粒子系统提供了强大而灵活的工具，可以创建各种视觉效果。通过组合不同的设置和 TSL 特效，你可以创建从简单的火花到复杂的魔法效果的各种效果。
 
 记住，创建好的粒子效果需要反复调整和测试。不要害怕尝试不同的参数组合，直到你得到满意的效果！

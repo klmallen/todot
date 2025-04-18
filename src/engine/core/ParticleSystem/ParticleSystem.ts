@@ -5,6 +5,7 @@ import { ParticleEmitter } from './ParticleEmitter';
 import { ParticleRenderer } from './ParticleRenderer';
 import { ParticleSystemSettings } from './ParticleSystemSettings';
 import { ParticleData } from './ParticleData';
+import { ParticleSystemTSL, ParticleTSLEffectType, ParticleTSLEffectParams } from './ParticleSystemTSL';
 
 /**
  * 粒子系统类 - 用于创建和管理粒子效果
@@ -113,6 +114,7 @@ export class ParticleSystem extends Node3d {
   private _emitter: ParticleEmitter;
   private _renderer: ParticleRenderer;
   private _settings: ParticleSystemSettings;
+  private _tslExtension: ParticleSystemTSL | null = null;
 
   // 事件回调
   private _onComplete: (() => void) | null = null;
@@ -198,6 +200,11 @@ export class ParticleSystem extends Node3d {
 
     // 更新渲染器
     this._renderer.update(this._particles);
+
+    // 更新TSL扩展
+    if (this._tslExtension) {
+      this._tslExtension.update(deltaTime);
+    }
   }
 
   /**
@@ -208,11 +215,11 @@ export class ParticleSystem extends Node3d {
     // 根据发射率计算本帧应该发射的粒子数量
     const emissionRate = this._settings.emission.rateOverTime;
     const particlesToEmit = Math.floor(emissionRate * deltaTime);
-
+    if(this._particles.length >= this._settings.maxParticles) return
     // 发射粒子
     for (let i = 0; i < particlesToEmit; i++) {
       // 检查是否达到最大粒子数
-      if (this._particles.length >= this._maxParticles) {
+      if (this._particles.length >= this._settings.maxParticles) {
         break;
       }
 
@@ -243,6 +250,8 @@ export class ParticleSystem extends Node3d {
     // 重力向量
     const gravity = new THREE.Vector3(0, -9.8 * this._gravityModifier, 0);
 
+
+    // console.log( this._particles,' this._particles')
     // 更新每个粒子
     for (let i = this._particles.length - 1; i >= 0; i--) {
       const particle = this._particles[i];
@@ -317,6 +326,35 @@ export class ParticleSystem extends Node3d {
   play(): void {
     this._isPlaying = true;
     this._isPaused = false;
+
+    // 检查是否需要立即发射粒子
+    // 特别是对于永久性粒子效果（如刀光）
+    if ( this._settings.maxParticles === 1) { // 检测是否为长生命周期粒子
+
+      console.log('检测到永久性粒子效果，立即发射初始粒子');
+
+      // 立即发射一个粒子
+      const particle = this._emitter.emitParticle();
+
+      // 如果在世界空间中模拟，转换粒子位置
+      if (this._simulationSpace === 'World') {
+        const worldMatrix = this.getThreeObject().matrixWorld;
+        particle.position.applyMatrix4(worldMatrix);
+
+        // 转换速度方向
+        const direction = new THREE.Vector3().copy(particle.velocity).normalize();
+        direction.applyMatrix4(new THREE.Matrix4().extractRotation(worldMatrix));
+        particle.velocity.copy(direction.multiplyScalar(particle.velocity.length()));
+      }
+
+      // 添加到粒子列表
+      this._particles.push(particle);
+
+      // 立即更新渲染器
+      this._renderer.update(this._particles);
+
+      console.log('已立即发射初始粒子，当前粒子数量:', this._particles.length);
+    }
   }
 
   /**
@@ -491,6 +529,211 @@ export class ParticleSystem extends Node3d {
   }
 
   /**
+   * 获取TSL扩展
+   * 如果不存在，则创建一个新的TSL扩展
+   */
+  getTSLExtension(): ParticleSystemTSL {
+    if (!this._tslExtension) {
+      this._tslExtension = new ParticleSystemTSL(this);
+    }
+    return this._tslExtension;
+  }
+
+  /**
+   * 设置TSL效果
+   * @param params 效果参数
+   */
+  setTSLEffect(params: ParticleTSLEffectParams): void {
+    const tslExtension = this.getTSLExtension();
+    tslExtension.setEffect(params);
+  }
+
+  /**
+   * 设置UV动画效果
+   * @param textureMap 纹理贴图
+   * @param speedX X方向移动速度
+   * @param speedY Y方向移动速度
+   * @param scale UV缩放
+   */
+  setUVAnimationEffect(textureMap: THREE.Texture, speedX = 0.5, speedY = 0.0, scale = 1.0): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.UV_ANIMATION,
+      textureMap,
+      speedX,
+      speedY,
+      scale
+    });
+  }
+
+  /**
+   * 设置流动效果
+   * @param textureMap 纹理贴图
+   * @param flowSpeed 流动速度
+   * @param flowDirection 流动方向 (0: X方向, 1: Y方向)
+   * @param scale UV缩放
+   */
+  setFlowEffect(textureMap: THREE.Texture, flowSpeed = 1.0, flowDirection = 0, scale = 1.0): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.FLOW,
+      textureMap,
+      flowSpeed,
+      flowDirection,
+      scale
+    });
+  }
+
+  /**
+   * 设置发光效果
+   * @param baseColor 基础颜色
+   * @param glowColor 发光颜色
+   * @param glowIntensity 发光强度
+   * @param pulseSpeed 脉冲速度 (0表示不脉冲)
+   */
+  setGlowEffect(baseColor: THREE.Color, glowColor: THREE.Color, glowIntensity = 1.0, pulseSpeed = 0.0): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.GLOW,
+      baseColor,
+      glowColor,
+      glowIntensity,
+      pulseSpeed
+    });
+  }
+
+  /**
+   * 设置爆炸效果
+   * @param textureMap 纹理贴图
+   * @param centerColor 中心颜色
+   * @param edgeColor 边缘颜色
+   * @param explosionSpeed 爆炸速度
+   */
+  setExplosionEffect(textureMap: THREE.Texture, centerColor: THREE.Color, edgeColor: THREE.Color, explosionSpeed = 1.0): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.EXPLOSION,
+      textureMap,
+      centerColor,
+      edgeColor,
+      explosionSpeed
+    });
+  }
+
+  /**
+   * 设置内聚效果
+   * @param textureMap 纹理贴图
+   * @param centerColor 中心颜色
+   * @param edgeColor 边缘颜色
+   * @param convergenceSpeed 内聚速度
+   */
+  setConvergenceEffect(textureMap: THREE.Texture, centerColor: THREE.Color, edgeColor: THREE.Color, convergenceSpeed = 1.0): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.CONVERGENCE,
+      textureMap,
+      centerColor,
+      edgeColor,
+      convergenceSpeed
+    });
+  }
+
+  /**
+   * 设置旋转UV效果
+   * @param textureMap 纹理贴图
+   * @param rotationSpeed 旋转速度
+   * @param scale UV缩放
+   */
+  setRotatingUVEffect(textureMap: THREE.Texture, rotationSpeed = 1.0, scale = 1.0): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.ROTATING_UV,
+      textureMap,
+      rotationSpeed,
+      scale
+    });
+  }
+
+  /**
+   * 设置扭曲效果
+   * @param textureMap 基础纹理贴图
+   * @param distortionMap 扭曲纹理贴图
+   * @param distortionStrength 扭曲强度
+   * @param distortionSpeed 扭曲速度
+   */
+  setDistortionEffect(textureMap: THREE.Texture, distortionMap: THREE.Texture, distortionStrength = 0.1, distortionSpeed = 1.0): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.DISTORTION,
+      textureMap,
+      distortionMap,
+      distortionStrength,
+      distortionSpeed
+    });
+  }
+
+  /**
+   * 设置溶解效果
+   * @param textureMap 基础纹理贴图
+   * @param noiseMap 噪声纹理贴图
+   * @param dissolveEdgeColor 溶解边缘颜色
+   * @param dissolveAmount 溶解量 (0-1)
+   * @param edgeWidth 边缘宽度
+   */
+  setDissolveEffect(textureMap: THREE.Texture, noiseMap: THREE.Texture, dissolveEdgeColor: THREE.Color, dissolveAmount = 0.5, edgeWidth = 0.1): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.DISSOLVE,
+      textureMap,
+      noiseMap,
+      dissolveEdgeColor,
+      dissolveAmount,
+      edgeWidth
+    });
+  }
+
+  /**
+   * 设置能量波纹效果
+   * @param textureMap 基础纹理贴图
+   * @param waveColor 波纹颜色
+   * @param waveSpeed 波纹速度
+   * @param waveFrequency 波纹频率
+   * @param waveAmplitude 波纹振幅
+   */
+  setEnergyWaveEffect(textureMap: THREE.Texture, waveColor: THREE.Color, waveSpeed = 1.0, waveFrequency = 5.0, waveAmplitude = 0.1): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.ENERGY_WAVE,
+      textureMap,
+      waveColor,
+      waveSpeed,
+      waveFrequency,
+      waveAmplitude
+    });
+  }
+
+  /**
+   * 设置刀光拖尾效果
+   * @param textureMap 基础纹理贴图
+   * @param trailColor 拖尾颜色
+   * @param trailLength 拖尾长度
+   * @param trailSpeed 拖尾速度
+   */
+  setSwordTrailEffect(textureMap: THREE.Texture, trailColor: THREE.Color, trailLength = 0.5, trailSpeed = 1.0): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.SWORD_TRAIL,
+      textureMap,
+      trailColor,
+      trailLength,
+      trailSpeed
+    });
+  }
+
+  /**
+   * 设置自定义TSL效果
+   * @param customColorNode 自定义颜色节点
+   * @param customOpacityNode 自定义透明度节点
+   */
+  setCustomTSLEffect(customColorNode: any, customOpacityNode?: any): void {
+    this.setTSLEffect({
+      effectType: ParticleTSLEffectType.CUSTOM,
+      customColorNode,
+      customOpacityNode
+    });
+  }
+
+  /**
    * 销毁粒子系统
    */
   destroy(): void {
@@ -503,6 +746,9 @@ export class ParticleSystem extends Node3d {
     // 清理粒子数组
     this._particles = [];
 
+    // 清理TSL扩展
+    this._tslExtension = null;
+
     // 清理其他资源
     this._isPlaying = false;
     this._isPaused = false;
@@ -513,3 +759,5 @@ export class ParticleSystem extends Node3d {
     // 注意：父类 Node3d 没有 destroy 方法，所以不调用 super.destroy()
   }
 }
+
+

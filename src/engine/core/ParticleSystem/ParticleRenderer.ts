@@ -482,7 +482,7 @@ export class ParticleRenderer {
       console.warn('网格粒子没有instanceColor属性');
     }
 
-    console.log('网格粒子更新完成');
+    // console.log('网格粒子更新完成');
   }
 
   /**
