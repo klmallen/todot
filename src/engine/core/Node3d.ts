@@ -232,6 +232,17 @@ export class Node3d {
     return script;
   }
 
+  /**
+   * 添加已实例化的脚本对象
+   * @param script 已经实例化的脚本对象
+   * @returns 添加的脚本对象
+   */
+  public addScriptInstance<T extends Script>(script: T): T {
+    this._scripts.push(script);
+    script.onAttach(this);
+    return script;
+  }
+
   // 通过脚本类型获取脚本
   public getScript<T extends Script>(
     scriptClass: new (...args: any[]) => T

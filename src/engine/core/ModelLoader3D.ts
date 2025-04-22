@@ -258,7 +258,7 @@ export class ModelLoader3D extends Node3d implements PromiseLike<THREE.Group> {
             object.visible = false;
           }
         });
-
+        
         // 调用加载完成回调
         if (this.onLoadedCallback && this.model) {
           this.onLoadedCallback(this.model);

@@ -106,3 +106,7 @@ export function getExampleByName(name: string): Example | undefined {
 export function getExampleById(id: string): Example | undefined {
   return examples.find(example => example.id === id);
 }
+
+// 导出各个示例文件
+export * from './permanent-sword-trail-example';
+export * from './tsl-dissolve-sword-trail-example';

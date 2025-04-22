@@ -10,6 +10,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Node3d } from './Node3d';
 import { SceneSerializer } from './SceneSerializer';
 import { WebGPURenderer } from 'three/webgpu';
+import { PostProcessingManager } from './postprocessing/PostProcessingManager';
+import { PostProcessingEffect } from './postprocessing/PostProcessingEffect';
+// import { PresetType } from './postprocessing/PostProcessingPreset';
 // 导入WebGPU相关类型
 // 注意：使用any类型来避免类型错误，因为WebGPURenderer可能在某些环境中不可用
 type WebGPURenderer = any;
@@ -30,6 +33,7 @@ export default class Engine {
   private activeScenes: Set<string> = new Set();  // 存储激活的场景名称
   private showBoundingBoxes: boolean = false;
   private boundingBoxHelpers: Map<THREE.Object3D, THREE.BoxHelper> = new Map();
+  private postProcessingManager: PostProcessingManager;
 
   constructor(canvas?: HTMLCanvasElement, physics: IPhysics | null = null) {
     // 确保单例实现
@@ -404,6 +408,9 @@ export default class Engine {
       this.initDefaultUI();
     }
 
+    // 初始化后处理
+    this.initPostProcessing();
+
     return this;
   }
 
@@ -556,6 +563,11 @@ export default class Engine {
       scene.activate();
       this.activeScenes.add(name);
       this.threeScene.add(scene.getThreeObject());
+      console.log(scene,' 引擎 - scene.getThreeScene()')
+      // 初始化后处理
+      if (this.camera && scene.threeScene) {
+        this.postProcessingManager.init(scene.threeScene, this.camera.getThreeCamera());
+      }
     }
   }
 
@@ -1067,5 +1079,65 @@ export default class Engine {
       }
     }
     return null;
+  }
+
+  // 初始化后处理
+  private initPostProcessing(): void {
+    // 假设this.renderer已经在Engine.init()中初始化
+    this.postProcessingManager = new PostProcessingManager(this.renderer);
+    
+    // 假设已经有了activateScene方法
+    // 在activateScene方法末尾添加这行代码
+    if (this.getActiveScene() && this.camera) {
+      this.postProcessingManager.init(this.threeScene, this.camera.getThreeCamera());
+    }
+  }
+  
+  // 添加一个后处理效果
+  public addPostProcessingEffect(effect: PostProcessingEffect, enabled: boolean = true): void {
+    this.postProcessingManager.addEffect(effect, enabled);
+  }
+  
+  // 移除一个后处理效果
+  public removePostProcessingEffect(name: string): void {
+    this.postProcessingManager.removeEffect(name);
+  }
+  
+  // 启用/禁用一个后处理效果
+  public setPostProcessingEffectEnabled(name: string, enabled: boolean): void {
+    this.postProcessingManager.setEffectEnabled(name, enabled);
+  }
+  
+  // 应用后处理预设
+  public applyPostProcessingPreset(presetType: any): void {
+    this.postProcessingManager.applyPreset(presetType);
+  }
+  
+  // 获取后处理管理器
+  public getPostProcessingManager(): PostProcessingManager {
+    return this.postProcessingManager;
+  }
+  
+  // 修改渲染循环
+  // 在Engine类的渲染方法中添加这段代码
+  private renderWithPostProcessing(): void {
+    // 更新场景、相机等...
+    
+    // 使用后处理渲染
+    if (this.postProcessingManager) {
+      this.postProcessingManager.update(this.clock.getDelta());
+      this.postProcessingManager.render();
+    } else {
+      // 原始渲染逻辑
+      this.renderer.render(this.threeScene, this.camera.getThreeCamera());
+    }
+  }
+  
+  // 窗口大小调整
+  // 在Engine类的resize方法中添加这行代码
+  private resizePostProcessing(width: number, height: number): void {
+    if (this.postProcessingManager) {
+      this.postProcessingManager.resize(width, height);
+    }
   }
 }
