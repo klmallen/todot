@@ -24,7 +24,7 @@ export async function runTSLDissolveExample(): Promise<Engine> {
     showDefaultUI: true,
     showHelpers: true,
     addDefaultLights: true,
-    useWebGPU: false // 使用WebGL以确保着色器兼容性
+    useWebGPU: true // 使用WebGL以确保着色器兼容性
   });
 
   // 创建场景
@@ -52,7 +52,7 @@ export async function runTSLDissolveExample(): Promise<Engine> {
   scene.addNode(ground);
 
   // 创建溶解效果模型
-  createDissolveEffect(scene);
+  // createDissolveEffect(scene);
 
   // 启动引擎
   engine.start();

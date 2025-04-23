@@ -3,6 +3,7 @@ import { Curve } from './Curves/Curve';
 import { ColorCurve } from './Curves/ColorCurve';
 import { MinMaxCurve } from './Curves/MinMaxCurve';
 import { GradientCurve } from './Curves/GradientCurve';
+import { ParticleLifecycleEvent } from './ParticleSystem';
 
 /**
  * 发射器形状类型
@@ -13,6 +14,16 @@ export type EmitterShapeType = 'Cone' | 'Sphere' | 'Box' | 'Circle' | 'Edge' | '
  * 渲染模式类型
  */
 export type RenderModeType = 'Billboard' | 'Mesh' | 'Trail' | 'StretchedBillboard';
+
+/**
+ * 粒子系统的生命周期回调类型
+ */
+export interface ParticleLifecycleCallbacks {
+  onProgress?: (progress: number) => void;
+  onComplete?: () => void;
+  onDestroyed?: () => void;
+  onReset?: () => void;
+}
 
 /**
  * 发射器设置
@@ -177,6 +188,12 @@ export class ParticleSystemSettings {
     speedScale: 0.5,
     alignToDirection: false
   };
+  
+  // 自动销毁设置
+  autoDestroy: boolean = false;
+  
+  // 生命周期回调函数
+  lifecycle?: ParticleLifecycleCallbacks;
   
   /**
    * 构造函数

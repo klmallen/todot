@@ -6,6 +6,24 @@ import { ParticleRenderer } from './ParticleRenderer';
 import { ParticleSystemSettings } from './ParticleSystemSettings';
 import { ParticleData } from './ParticleData';
 import { ParticleSystemTSL, ParticleTSLEffectType, ParticleTSLEffectParams } from './ParticleSystemTSL';
+import { EventEmitter } from '../../utils/EventEmitter';
+
+/**
+ * 粒子系统生命周期事件
+ */
+export enum ParticleLifecycleEvent {
+  START = 'start',              // 开始播放
+  PAUSE = 'pause',              // 暂停
+  RESUME = 'resume',            // 恢复
+  STOP = 'stop',                // 停止
+  COMPLETE = 'complete',        // 完成一个生命周期
+  LOOP = 'loop',                // 循环开始
+  PROGRESS = 'progress',        // 进度更新
+  PARTICLE_BORN = 'particleBorn', // 粒子产生
+  PARTICLE_DIED = 'particleDied',  // 粒子消亡
+  DESTROYED = 'destroyed',      // 粒子系统被销毁
+  RESET = 'reset',              // 粒子系统被重置
+}
 
 /**
  * 粒子系统类 - 用于创建和管理粒子效果
@@ -28,7 +46,7 @@ export class ParticleSystem extends Node3d {
     step: 0.1,
     group: '基础设置'
   })
-  private _duration: number = 5.0;
+  private _duration: number = 3.0;
 
   @editable({
     displayName: '循环',
@@ -115,9 +133,17 @@ export class ParticleSystem extends Node3d {
   private _renderer: ParticleRenderer;
   private _settings: ParticleSystemSettings;
   private _tslExtension: ParticleSystemTSL | null = null;
+  private _autoDestroy: boolean = false; // 是否在完成后自动销毁
+  private _isDestroyed: boolean = false; // 是否已被销毁
 
   // 事件回调
   private _onComplete: (() => void) | null = null;
+  private _onProgress: ((progress: number) => void) | null = null;
+  private _onDestroyed: (() => void) | null = null;
+  private _onReset: (() => void) | null = null;
+
+  // 事件发射器
+  private _eventEmitter: EventEmitter = new EventEmitter();
 
   /**
    * 构造函数
@@ -160,10 +186,10 @@ export class ParticleSystem extends Node3d {
    * 更新粒子系统
    * @param deltaTime 时间增量
    */
-  update(deltaTime: number): void {
+  override update(deltaTime: number): void {
     super.update(deltaTime);
 
-    if (!this._isPlaying || this._isPaused) {
+    if (!this._isPlaying || this._isPaused || this._isDestroyed) {
       return;
     }
 
@@ -174,11 +200,23 @@ export class ParticleSystem extends Node3d {
     this._time += scaledDeltaTime;
     this._emissionTime += scaledDeltaTime;
 
+    // 发送进度事件
+    const progress = this.getProgress();
+    this._eventEmitter.emit(ParticleLifecycleEvent.PROGRESS, progress);
+    
+    // 触发进度回调
+    if (this._onProgress) {
+      this._onProgress(progress);
+    }
+
     // 检查是否完成一个循环
     if (this._time >= this._duration) {
       if (this._loop) {
         // 如果循环，重置时间
         this._time = this._time % this._duration;
+        
+        // 触发循环事件
+        this._eventEmitter.emit(ParticleLifecycleEvent.LOOP);
       } else {
         // 如果不循环，停止粒子系统
         this.stop();
@@ -186,6 +224,14 @@ export class ParticleSystem extends Node3d {
         // 调用完成回调
         if (this._onComplete) {
           this._onComplete();
+        }
+        
+        // 触发完成事件
+        this._eventEmitter.emit(ParticleLifecycleEvent.COMPLETE);
+        
+        // 如果设置了自动销毁，则销毁粒子系统
+        if (this._autoDestroy) {
+          this.destroy(true);
         }
 
         return;
@@ -215,6 +261,7 @@ export class ParticleSystem extends Node3d {
     // 根据发射率计算本帧应该发射的粒子数量
     const emissionRate = this._settings.emission.rateOverTime;
     const particlesToEmit = Math.floor(emissionRate * deltaTime);
+    console.log( this._particles,' this._particles')
     if(this._particles.length >= this._settings.maxParticles) return
     // 发射粒子
     for (let i = 0; i < particlesToEmit; i++) {
@@ -225,6 +272,9 @@ export class ParticleSystem extends Node3d {
 
       // 创建新粒子
       const particle = this._emitter.emitParticle();
+      
+      // 触发粒子生成事件
+      this._eventEmitter.emit(ParticleLifecycleEvent.PARTICLE_BORN, particle);
 
       // 如果在世界空间中模拟，转换粒子位置
       if (this._simulationSpace === 'World') {
@@ -261,6 +311,9 @@ export class ParticleSystem extends Node3d {
 
       // 检查粒子是否已经死亡
       if (particle.age >= particle.lifetime) {
+        // 触发粒子死亡事件
+        this._eventEmitter.emit(ParticleLifecycleEvent.PARTICLE_DIED, particle);
+        
         // 移除死亡粒子
         this._particles.splice(i, 1);
         continue;
@@ -324,17 +377,29 @@ export class ParticleSystem extends Node3d {
    * 播放粒子系统
    */
   play(): void {
+    const wasPlaying = this._isPlaying;
+    const wasPaused = this._isPaused;
+    
     this._isPlaying = true;
     this._isPaused = false;
 
+    // 触发相应事件
+    if (!wasPlaying) {
+      this._eventEmitter.emit(ParticleLifecycleEvent.START);
+    } else if (wasPaused) {
+      this._eventEmitter.emit(ParticleLifecycleEvent.RESUME);
+    }
+
     // 检查是否需要立即发射粒子
     // 特别是对于永久性粒子效果（如刀光）
-    if ( this._settings.maxParticles === 1) { // 检测是否为长生命周期粒子
-
+    if (this._settings.maxParticles === 1) { // 检测是否为长生命周期粒子
       console.log('检测到永久性粒子效果，立即发射初始粒子');
 
       // 立即发射一个粒子
       const particle = this._emitter.emitParticle();
+      
+      // 触发粒子出生事件
+      this._eventEmitter.emit(ParticleLifecycleEvent.PARTICLE_BORN, particle);
 
       // 如果在世界空间中模拟，转换粒子位置
       if (this._simulationSpace === 'World') {
@@ -361,7 +426,12 @@ export class ParticleSystem extends Node3d {
    * 暂停粒子系统
    */
   pause(): void {
-    this._isPaused = true;
+    if (this._isPlaying && !this._isPaused) {
+      this._isPaused = true;
+      
+      // 触发暂停事件
+      this._eventEmitter.emit(ParticleLifecycleEvent.PAUSE);
+    }
   }
 
   /**
@@ -369,14 +439,19 @@ export class ParticleSystem extends Node3d {
    * @param clearParticles 是否清除现有粒子
    */
   stop(clearParticles: boolean = true): void {
-    this._isPlaying = false;
-    this._isPaused = false;
-    this._time = 0;
-    this._emissionTime = 0;
+    if (this._isPlaying) {
+      this._isPlaying = false;
+      this._isPaused = false;
+      this._time = 0;
+      this._emissionTime = 0;
 
-    if (clearParticles) {
-      this._particles = [];
-      this._renderer.update(this._particles);
+      if (clearParticles) {
+        this._particles = [];
+        this._renderer.update(this._particles);
+      }
+      
+      // 触发停止事件
+      this._eventEmitter.emit(ParticleLifecycleEvent.STOP);
     }
   }
 
@@ -386,6 +461,9 @@ export class ParticleSystem extends Node3d {
    */
   onComplete(callback: () => void): void {
     this._onComplete = callback;
+    
+    // 同时通过事件系统添加一次性监听器
+    this.once(ParticleLifecycleEvent.COMPLETE, callback);
   }
 
   /**
@@ -404,6 +482,72 @@ export class ParticleSystem extends Node3d {
 
     // 合并其他设置
     Object.assign(this._settings, settings);
+
+    // 如果设置了duration，则更新内部的_duration
+    if (settings.duration !== undefined) {
+      this._duration = settings.duration;
+    }
+
+    // 如果设置了loop，则更新内部的_loop
+    if (settings.loop !== undefined) {
+      this._loop = settings.loop;
+    }
+
+    // 如果设置了prewarm，则更新内部的_prewarm
+    if (settings.prewarm !== undefined) {
+      this._prewarm = settings.prewarm;
+    }
+
+    // 如果设置了playbackSpeed，则更新内部的_playbackSpeed
+    if (settings.playbackSpeed !== undefined) {
+      this._playbackSpeed = settings.playbackSpeed;
+    }
+
+    // 如果设置了maxParticles，则更新内部的_maxParticles
+    if (settings.maxParticles !== undefined) {
+      this._maxParticles = settings.maxParticles;
+    }
+
+    // 如果设置了playOnAwake，则更新内部的_playOnAwake
+    if (settings.playOnAwake !== undefined) {
+      this._playOnAwake = settings.playOnAwake;
+    }
+
+    // 如果设置了simulationSpace，则更新内部的_simulationSpace
+    if (settings.simulationSpace !== undefined) {
+      this._simulationSpace = settings.simulationSpace;
+    }
+
+    // 如果设置了useGravity，则更新内部的_useGravity
+    if (settings.useGravity !== undefined) {
+      this._useGravity = settings.useGravity;
+    }
+
+    // 如果设置了gravityModifier，则更新内部的_gravityModifier
+    if (settings.gravityModifier !== undefined) {
+      this._gravityModifier = settings.gravityModifier;
+    }
+
+    // 如果设置了autoDestroy，则更新内部的_autoDestroy
+    if (settings.autoDestroy !== undefined) {
+      this._autoDestroy = settings.autoDestroy;
+    }
+
+    // 如果设置了生命周期回调函数，则更新对应的回调
+    if (settings.lifecycle) {
+      if (settings.lifecycle.onProgress) {
+        this.onProgress(settings.lifecycle.onProgress);
+      }
+      if (settings.lifecycle.onComplete) {
+        this.onComplete(settings.lifecycle.onComplete);
+      }
+      if (settings.lifecycle.onDestroyed) {
+        this.onDestroyed(settings.lifecycle.onDestroyed);
+      }
+      if (settings.lifecycle.onReset) {
+        this.onReset(settings.lifecycle.onReset);
+      }
+    }
 
     // 更新发射器和渲染器
     console.log('更新粒子系统设置:', {
@@ -735,10 +879,19 @@ export class ParticleSystem extends Node3d {
 
   /**
    * 销毁粒子系统
+   * @param immediate 是否立即销毁（包括所有现有粒子）
    */
-  destroy(): void {
+  destroy(immediate: boolean = true): void {
+    // 如果已经销毁，直接返回
+    if (this._isDestroyed) {
+      return;
+    }
+    
+    // 标记为已销毁
+    this._isDestroyed = true;
+    
     // 停止粒子系统
-    this.stop();
+    this.stop(immediate);
 
     // 清理渲染器
     this._renderer.dispose();
@@ -749,14 +902,185 @@ export class ParticleSystem extends Node3d {
     // 清理TSL扩展
     this._tslExtension = null;
 
+    // 清理事件系统
+    this._eventEmitter.clear();
+    this._onComplete = null;
+    this._onProgress = null;
+    this._onDestroyed = null;
+    this._onReset = null;
+
     // 清理其他资源
     this._isPlaying = false;
     this._isPaused = false;
     this._time = 0;
     this._emissionTime = 0;
+    
+    // 触发销毁事件
+    this._eventEmitter.emit(ParticleLifecycleEvent.DESTROYED);
+    
+    // 从场景移除自身 - 不直接访问私有属性parent
+    this.removeFromParent();
+    
+    console.log('粒子系统已销毁:', this.name);
+  }
+  
+  /**
+   * 从父节点移除自身
+   * 这里我们使用公共方法而非直接访问私有属性
+   */
+  private removeFromParent(): void {
+    // 获取当前节点的父节点
+    const parentObject = this.getThreeObject().parent;
+    
+    // 如果有父节点，从父节点移除
+    if (parentObject) {
+      parentObject.remove(this.getThreeObject());
+    }
+  }
+  
+  /**
+   * 重置粒子系统
+   * 重置时间和所有粒子，但保留设置和事件监听器
+   */
+  reset(): void {
+    // 如果已销毁，无法重置
+    if (this._isDestroyed) {
+      console.warn('无法重置已销毁的粒子系统');
+      return;
+    }
+    
+    // 停止并清除所有粒子
+    this.stop(true);
+    
+    // 重置内部状态
+    this._time = 0;
+    this._emissionTime = 0;
+    this._isDestroyed = false;
+    
+    // 触发重置事件
+    this._eventEmitter.emit(ParticleLifecycleEvent.RESET);
+    
+    // 调用重置回调
+    if (this._onReset) {
+      this._onReset();
+    }
+    
+    // 如果设置为启动时播放，则自动播放
+    if (this._playOnAwake) {
+      this.play();
+    }
+    
+    console.log('粒子系统已重置:', this.name);
+  }
 
-    // 清理事件监听器
-    // 注意：父类 Node3d 没有 destroy 方法，所以不调用 super.destroy()
+  /**
+   * 设置是否在完成后自动销毁
+   * @param autoDestroy 是否自动销毁
+   */
+  setAutoDestroy(autoDestroy: boolean): void {
+    this._autoDestroy = autoDestroy;
+  }
+  
+  /**
+   * 获取是否在完成后自动销毁
+   */
+  getAutoDestroy(): boolean {
+    return this._autoDestroy;
+  }
+  
+  /**
+   * 设置进度回调
+   * @param callback 进度回调函数，参数为0-1之间的进度值
+   */
+  onProgress(callback: (progress: number) => void): void {
+    this._onProgress = callback;
+  }
+
+  /**
+   * 设置销毁回调
+   * @param callback 销毁回调函数
+   */
+  onDestroyed(callback: () => void): void {
+    this._onDestroyed = callback;
+    
+    // 同时通过事件系统添加一次性监听器
+    this.once(ParticleLifecycleEvent.DESTROYED, callback);
+  }
+  
+  /**
+   * 设置重置回调
+   * @param callback 重置回调函数
+   */
+  onReset(callback: () => void): void {
+    this._onReset = callback;
+    
+    // 同时通过事件系统添加一次性监听器
+    this.once(ParticleLifecycleEvent.RESET, callback);
+  }
+  
+  /**
+   * 检查粒子系统是否已被销毁
+   */
+  isDestroyed(): boolean {
+    return this._isDestroyed;
+  }
+
+  /**
+   * 添加事件监听器
+   * @param event 事件类型
+   * @param callback 回调函数
+   */
+  public on(event: ParticleLifecycleEvent, callback: (...args: any[]) => void): void {
+    this._eventEmitter.on(event, callback);
+  }
+
+  /**
+   * 移除事件监听器
+   * @param event 事件类型
+   * @param callback 要移除的回调函数
+   */
+  public off(event: ParticleLifecycleEvent, callback: (...args: any[]) => void): void {
+    this._eventEmitter.off(event, callback);
+  }
+
+  /**
+   * 添加一次性事件监听器
+   * @param event 事件类型
+   * @param callback 回调函数
+   */
+  public once(event: ParticleLifecycleEvent, callback: (...args: any[]) => void): void {
+    this._eventEmitter.once(event, callback);
+  }
+
+  /**
+   * 获取当前进度 (0-1)
+   */
+  public getProgress(): number {
+    return Math.min(this._time / this._duration, 1.0);
+  }
+
+  /**
+   * 获取当前时间
+   */
+  public getTime(): number {
+    return this._time;
+  }
+
+  /**
+   * 获取总持续时间
+   */
+  public getDuration(): number {
+    return this._duration;
+  }
+
+  /**
+   * 设置当前时间
+   * @param time 时间
+   */
+  public setTime(time: number): void {
+    this._time = Math.min(Math.max(time, 0), this._duration);
+    // 发送进度事件
+    this._eventEmitter.emit(ParticleLifecycleEvent.PROGRESS, this.getProgress());
   }
 }
 

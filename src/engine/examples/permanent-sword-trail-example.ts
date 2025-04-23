@@ -63,22 +63,10 @@ export async function runPermanentSwordTrailExample(): Promise<Engine> {
   scene.addNode(ground);
 
   // 创建默认刀光网格
-  const defaultTrailMesh = createDefaultSwordTrailMesh();
-
-  // 创建标准永久刀光
-  // createPermanentSwordTrail(scene, defaultTrailMesh);
-  
-  // // 创建四种方向的方向性溶解刀光
-  // createDirectionalDissolveSwordTrail(scene, defaultTrailMesh, 'x+');
-  // createDirectionalDissolveSwordTrail(scene, defaultTrailMesh, 'x-');
-  // createDirectionalDissolveSwordTrail(scene, defaultTrailMesh, 'y+');
-  // createDirectionalDissolveSwordTrail(scene, defaultTrailMesh, 'y-');
-  
-  // 创建基于X轴的Remap刀光效果
-  // createRemapXSwordTrail(scene, defaultTrailMesh);
-
   // 加载刀光模型
-  loadSwordTrailModel(scene);
+  loadSwordTrailModel(scene,'../../../public/models/daoguang/SM_VFX_Volume_Radial_Slash.FBX');
+  loadSwordTrailModel(scene,'../../../public/models/daoguang/SM_VFX_Slash_Radial_Half_1.FBX');
+  loadSwordTrailModel(scene,'../../../public/models/daoguang/SM_VFX_Slash_Radial_Half_2.FBX');
 
   // 启动引擎
   engine.start();
@@ -89,16 +77,9 @@ export async function runPermanentSwordTrailExample(): Promise<Engine> {
 /**
  * 加载刀光模型并创建粒子系统
  */
-function loadSwordTrailModel(scene: Scene): void {
-  // 创建一个简单的刀光模型（如果没有FBX模型可以使用）
-  // const defaultTrailMesh = createDefaultSwordTrailMesh();
-
-  // 创建永久刀光粒子系统
-  // createRemapXSwordTrail(scene, defaultTrailMesh);
-
-  // 尝试加载FBX模型（如果有的话）
-  // 注意：这里的路径需要根据实际情况调整
-  const modelPath = '../../../public/models/daoguang/SM_VFX_Slash_Radial_Half_1.FBX';
+function loadSwordTrailModel(scene: Scene,path:string): void {
+ 
+  const modelPath = path;
 
   // 创建模型加载器
   const modelLoader = new ModelLoader3D('刀光模型', modelPath);
@@ -822,7 +803,38 @@ async function createRemapXSwordTrail(
 ): ParticleSystem {
     // 创建刀光粒子系统
     const particleSystem = new ParticleSystem('流动刀光');
-
+    particleSystem._duration = 1
+    // particleSystem.setAutoDestroy(true);
+    // 设置进度回调，获取0-1的生命周期进度
+    particleSystem.onProgress((progress) => {
+        console.log(`粒子系统生命周期进度: ${(progress * 100).toFixed(0)}%`);
+        const userData = particleSystem.getSettings().renderer.material.userData;
+        let flowTime = 0;
+         if (userData.autoFlow) {
+                flowTime += progress * userData.flowSpeed.value * 3;
+                // 计算流动位置 - 在0和1之间循环
+                userData.flowPosition.value = flowTime
+                
+            }
+        
+    });
+    
+    // 设置完成回调
+    particleSystem.onComplete(() => {
+        console.log('粒子系统完成了一个生命周期');
+    });
+    
+    // 设置销毁回调
+    particleSystem.onDestroyed(() => {
+        console.log('粒子系统已被销毁');
+        
+        // 销毁后，可以在3秒后重新创建一个
+        setTimeout(() => {
+            console.log('重新创建粒子系统');
+            createRemapXSwordTrail(scene, trailGeometry);
+        }, 3000);
+    });
+    
     // 设置位置
     particleSystem.position.set(0, 3, 0);
     particleSystem.rotation.set(Math.PI / 2, 0, 0);
@@ -1089,7 +1101,7 @@ async function createRemapXSwordTrail(
     // 配置粒子系统设置
     const settings: Partial<ParticleSystemSettings> = {
         loop: true,
-        startLifetime: new MinMaxCurve(3600, 3600), // 1小时生命周期
+        startLifetime: new MinMaxCurve(3, 3), // 1小时生命周期
         startSpeed: new MinMaxCurve(0, 0),
         startSize: new MinMaxCurve(1.0, 1.0),
         startRotation: new MinMaxCurve(0, 0),
@@ -1097,8 +1109,9 @@ async function createRemapXSwordTrail(
             new THREE.Color(0x00ff88),
             new THREE.Color(0x00ff88)
         ),
+        loop: false,
         emission: {
-            rateOverTime: 0.01 // 极低的发射率
+            rateOverTime: 0 // 极低的发射率
         },
         maxParticles: 1, // 最多只有1个粒子
         shape: {
@@ -1153,7 +1166,7 @@ async function createRemapXSwordTrail(
             console.log(`流动刀光脚本已就绪`);
             
             // 创建UI控制面板
-            this.createControlUI();
+            // this.createControlUI();
         }
         
         private createControlUI(): void {
@@ -1687,23 +1700,23 @@ async function createRemapXSwordTrail(
             const userData = renderer.material.userData;
             
             // 如果启用了自动流动，则更新流动位置
-            if (userData.autoFlow) {
-                this.flowTime += deltaTime * userData.flowSpeed.value;
+            // if (userData.autoFlow) {
+            //     this.flowTime += deltaTime * userData.flowSpeed.value;
                 
-                // 计算流动位置 - 在0和1之间循环
-                userData.flowPosition.value = (Math.sin(this.flowTime) + 1) * 0.5;
+            //     // 计算流动位置 - 在0和1之间循环
+            //     userData.flowPosition.value = (Math.sin(this.flowTime) + 1) * 0.5;
                 
-                // 更新UI滑块（如果存在）
-                const slider = document.getElementById('flow-position-slider') as HTMLInputElement;
-                if (slider) {
-                    slider.value = userData.flowPosition.value.toString();
-                }
+            //     // 更新UI滑块（如果存在）
+            //     const slider = document.getElementById('flow-position-slider') as HTMLInputElement;
+            //     if (slider) {
+            //         slider.value = userData.flowPosition.value.toString();
+            //     }
                 
-                const label = document.getElementById('flow-position-label');
-                if (label) {
-                    label.textContent = `流动位置: ${userData.flowPosition.value.toFixed(2)}`;
-                }
-            }
+            //     const label = document.getElementById('flow-position-label');
+            //     if (label) {
+            //         label.textContent = `流动位置: ${userData.flowPosition.value.toFixed(2)}`;
+            //     }
+            // }
             
             // 简单的位置动画
             particleSystem.position.y = 3 + Math.sin(currentTime) * 0.2;

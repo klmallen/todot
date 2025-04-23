@@ -13,6 +13,7 @@
     "browser-fs-access": "^0.35.0",
     "cannon-es": "^0.20.0",
     "dat.gui": "^0.7.9",
+    "eventemitter3": "^5.0.1",
     "preact": "^10.7.3",
     "preact-custom-element": "^4.2.1",
     "react": "^19.0.0",
