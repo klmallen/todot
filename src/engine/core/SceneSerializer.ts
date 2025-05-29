@@ -14,6 +14,10 @@ import { ModelLoader3D } from '../core/ModelLoader3D';
 import { TextureLoader3D } from '../core/Texture/TextureLoader3D';
 import { TerrainSystem } from '../core/TerrainSystem/TerrainSystem';
 import { VegetationSystem } from '../core/TerrainSystem/VegetationSystem';
+import { AnimationNode3D } from '../core/AnimationNode3D';
+import { ParticleSystem } from '../core/ParticleSystem/ParticleSystem';
+import { LightNode3D } from '../core/Light/LightNode3D';
+import { SwordTrailParticle } from '../core/ParticleSystem/SwordTrailParticle';
 // 其他组件...
 
 // 组件类型映射，用于反序列化
@@ -25,10 +29,65 @@ const componentTypeMap: { [key: string]: any } = {
   'TerrainSystem': TerrainSystem,
   'VegetationSystem': VegetationSystem,
   'Node3d': Node3d,
-  // 其他组件...
+  'AnimationNode3D': AnimationNode3D,
+  'ParticleSystem': ParticleSystem,
+  'LightNode3D': LightNode3D,
+  'SwordTrailParticle': SwordTrailParticle
 };
 
 export class SceneSerializer {
+  // 存储已加载的脚本
+  private static scriptsMap = new Map<string, any>();
+  // 项目根路径
+  private static projectRoot: string = '';
+
+  /**
+   * 设置项目根路径
+   * @param root 项目根路径
+   */
+  public static setProjectRoot(root: string) {
+    this.projectRoot = root;
+    console.log('Set project root:', root);
+  }
+
+  /**
+   * 初始化并加载所有脚本
+   * @returns Promise<void>
+   */
+  public static async initializeScripts(): Promise<void> {
+    try {
+    
+
+      // 使用完整路径进行加载
+      const scriptPattern = `${this.projectRoot}/src/demoScript/**/*.ts`;
+      console.log('Loading scripts from:', scriptPattern);
+
+      const modules = import.meta.glob('/src/demoScript/**/*.ts', {
+        eager: false
+      });
+
+      for (const path in modules) {
+        try {
+          const module = await modules[path]();
+          // 将绝对路径转换为项目相对路径
+          const relativePath = path.replace(/^\/src\/demoScript\//, '').replace(/\.ts$/, '');
+          
+          if (module.default) {
+            this.scriptsMap.set(relativePath, module.default);
+            ScriptRegistry.registerScript(relativePath, module.default);
+            console.log(`Loaded script: ${relativePath}`);
+          }
+        } catch (error) {
+          console.error(`Failed to load script at ${path}:`, error);
+        }
+      }
+
+      console.log('All scripts loaded:', Array.from(this.scriptsMap.keys()));
+    } catch (error) {
+      console.error('Script initialization failed:', error);
+    }
+  }
+
   /**
    * 将场景序列化为JSON字符串
    * @param scene 要序列化的场景
@@ -55,30 +114,30 @@ export class SceneSerializer {
    * @returns 新的场景实例
    */
   public static deserializeScene(jsonStr: string): Scene {
-    const sceneData =JSON.parse(jsonStr)
+    const sceneData = JSON.parse(jsonStr);
     
+    console.log(sceneData, 'sceneData')
     // 创建新场景
-    const scene = new Scene(sceneData.name);
+    const scene = new Scene(sceneData.scene.name);
     
     // 清除默认的根节点子节点
     const rootNode = scene.getRootNode();
     const children = [...rootNode.getChildren()];
     children.forEach(child => rootNode.removeChild(child));
     
-    // 反序列化根节点的子节点
-    if (sceneData.rootNode.children && sceneData.rootNode.children.length > 0) {
-      sceneData.rootNode.children.forEach((childData: any) => {
-        const child = this.deserializeNode(childData);
+    // 反序列化根节点的直接子节点
+    if (sceneData.scene.rootNode.children && sceneData.scene.rootNode.children.length > 0) {
+      sceneData.scene.rootNode.children.forEach((childData: any) => {
+        const child = this.deserializeNode(childData, scene);
         if (child) {
-          rootNode.addChild(child);
+          // 对于根节点的直接子节点，使用 scene.addNode
+          scene.addNode(child);
         }
       });
     }
     
     // 设置场景激活状态
-    if (sceneData.active) {
-      scene.activate();
-    }
+    scene.activate();
     
     return scene;
   }
@@ -86,70 +145,31 @@ export class SceneSerializer {
   /**
    * 反序列化节点
    * @param nodeData 节点数据
+   * @param scene 场景实例，仅用于根节点的直接子节点
    * @returns 节点实例
    */
-  private static deserializeNode(nodeData: any): Node3d | null {
-    // 获取节点类型构造函数
-    const NodeConstructor = componentTypeMap[nodeData.type] || Node3d;
-    
-    if (!NodeConstructor) {
-      console.warn(`未知节点类型: ${nodeData.type}`);
-      return null;
-    }
-    
+  private static deserializeNode(nodeData: any, scene?: Scene): Node3d | null {
     // 创建节点实例
-    const node = new NodeConstructor(nodeData.name);
+    const node = this.createNodeInstance(nodeData);
     
-    // 设置位置、旋转和缩放
-    if (nodeData.position) {
-      node.position.set(
-        nodeData.position.x,
-        nodeData.position.y,
-        nodeData.position.z
-      );
-    }
-    
-    if (nodeData.rotation) {
-      node.rotation.set(
-        nodeData.rotation.x,
-        nodeData.rotation.y,
-        nodeData.rotation.z
-      );
-    }
-    
-    if (nodeData.scale) {
-      node.scale.set(
-        nodeData.scale.x,
-        nodeData.scale.y,
-        nodeData.scale.z
-      );
-    }
-    
-    // 设置可见性
-    if (nodeData.visible !== undefined) {
-      node.getThreeObject().visible = nodeData.visible;
-    }
-    
-    // 设置标签
-    if (nodeData.tags && Array.isArray(nodeData.tags)) {
-      nodeData.tags.forEach((tag: string) => node.addTag(tag));
-    }
-    
+    if(!node) return null;
+
     // 处理特定组件数据
     this.deserializeComponentData(node, nodeData);
     
     // 添加脚本
-    if (nodeData.scripts && Array.isArray(nodeData.scripts)) {
+    if(nodeData.scripts && Array.isArray(nodeData.scripts)) {
+      console.log(nodeData.scripts,'nodeData.scripts 996')
       nodeData.scripts.forEach((scriptData: any) => {
         this.deserializeScript(node, scriptData);
       });
     }
     
     // 递归处理子节点
-    if (nodeData.children && Array.isArray(nodeData.children)) {
+    if(nodeData.children && Array.isArray(nodeData.children)) {
       nodeData.children.forEach((childData: any) => {
         const childNode = this.deserializeNode(childData);
-        if (childNode) {
+        if(childNode) {
           node.addChild(childNode);
         }
       });
@@ -159,11 +179,132 @@ export class SceneSerializer {
   }
   
   /**
+   * 创建节点实例
+   * @param nodeData 节点数据
+   * @returns 节点实例
+   */
+  private static createNodeInstance(nodeData: any): Node3d | null {
+    const NodeConstructor = componentTypeMap[nodeData.type] || Node3d;
+    
+    if (!NodeConstructor) {
+      console.warn(`未知节点类型: ${nodeData.type}`);
+      return null;
+    }
+
+    let node: Node3d;
+    
+    switch(nodeData.type) {
+      case 'MeshInstance3D':
+        node = new NodeConstructor(
+          nodeData.name,
+          this.createGeometry(nodeData.geometry),
+          this.createMaterial(nodeData.material)
+        );
+        break;
+        
+      case 'ModelLoader3D':
+        node = new NodeConstructor(nodeData.name);
+        if(nodeData.modelPath) {
+          (node as ModelLoader3D).loadModel(nodeData.modelPath);
+        }
+        break;
+        
+      case 'TerrainSystem':
+        node = new NodeConstructor(nodeData.name);
+        // TerrainSystem的特殊初始化可以在deserializeComponentData中处理
+        break;
+        
+      case 'VegetationSystem':
+        node = new NodeConstructor(nodeData.name);
+        // VegetationSystem的特殊初始化可以在deserializeComponentData中处理
+        break;
+        
+      case 'CameraNode3D':
+        node = new NodeConstructor(nodeData.name);
+        // 相机的特殊属性设置
+        break;
+        
+      default:
+        node = new NodeConstructor(nodeData.name);
+    }
+
+    // 设置基本属性
+    if(nodeData.position) {
+      node.setPosition(
+        nodeData.position.x,
+        nodeData.position.y,
+        nodeData.position.z
+      );
+    }
+    
+    if(nodeData.rotation) {
+      node.setRotation(
+        nodeData.rotation.x,
+        nodeData.rotation.y,
+        nodeData.rotation.z
+      );
+    }
+    
+    if(nodeData.scale) {
+      node.setScale(
+        nodeData.scale.x,
+        nodeData.scale.y,
+        nodeData.scale.z
+      );
+    }
+
+    // 设置可见性
+    if(nodeData.visible !== undefined) {
+      node.getThreeObject().visible = nodeData.visible;
+    }
+
+    // 设置标签
+    if(nodeData.tags && Array.isArray(nodeData.tags)) {
+      nodeData.tags.forEach((tag: string) => node.addTag(tag));
+    }
+
+    return node;
+  }
+
+  public deserializeGeometry(data: any): THREE.BufferGeometry | null {
+    if (!data) return null;
+
+    // 使用 Three.js 的 BufferGeometryLoader 来加载几何体
+    const loader = new THREE.BufferGeometryLoader();
+    try {
+      return loader.parse(data);
+    } catch (error) {
+      console.warn('几何体反序列化失败:', error);
+      return new THREE.BufferGeometry();
+    }
+  }
+
+  public deserializeMaterial(data: any): THREE.Material | null {
+    if (!data) return null;
+
+    // 使用 Three.js 的 MaterialLoader 来加载材质
+    const loader = new THREE.MaterialLoader();
+    try {
+      return loader.parse(data);
+    } catch (error) {
+      console.warn('材质反序列化失败:', error);
+      return new THREE.MeshBasicMaterial();
+    }
+  }
+  /**
    * 反序列化组件特定数据
    * @param node 节点实例
    * @param nodeData 节点数据
    */
   private static deserializeComponentData(node: Node3d, nodeData: any): void {
+    if(node instanceof MeshInstance3D){
+      (node as MeshInstance3D).geometry = this.createGeometry(nodeData.geometry) || undefined;
+      (node as MeshInstance3D).material = this.createMaterial(nodeData.material) || undefined;
+      console.log(node.getThreeObject(),'node.getThreeObject()')
+    }
+    if (node instanceof ModelLoader3D) {
+      (node as ModelLoader3D).loadModel(nodeData.modelPath);
+    }
     // 处理TerrainSystem数据
     if (node instanceof TerrainSystem && nodeData.terrainData) {
       const terrainData = nodeData.terrainData;
@@ -280,59 +421,127 @@ export class SceneSerializer {
         node.updateVegetationDistribution();
       }
     }
+
+    // 处理AnimationNode3D数据
+    if (node instanceof AnimationNode3D && nodeData.animationData) {
+      const animNode = node as AnimationNode3D;
+      const animData = nodeData.animationData;
+
+      // 设置动画速度
+      if (typeof animData.animationSpeed === 'number') {
+        animNode.setSpeed(animData.animationSpeed);
+      }
+
+      // 设置过渡时间
+      if (typeof animData.transitionDuration === 'number') {
+        animNode.setTransitionDuration(animData.transitionDuration);
+      }
+
+      // 如果有模型数据，设置模型
+      if (animData.model) {
+        // 如果是ModelLoader3D实例
+        if (animData.model.type === 'ModelLoader3D') {
+          const modelLoader = new ModelLoader3D(animData.model.name);
+          modelLoader.loadModel(animData.model.path).then(() => {
+            animNode.setModel(modelLoader);
+            
+            // 恢复动画状态
+            if (animData.currentAnimation && animData.isPlaying) {
+              animNode.play(animData.currentAnimation, {
+                loop: animData.loop,
+                speed: animData.animationSpeed
+              });
+            }
+          });
+        } 
+        // 如果是普通THREE.Object3D
+        else {
+          const object = new THREE.Object3D();
+          // 设置基本属性
+          object.position.copy(animData.model.position);
+          object.rotation.copy(animData.model.rotation);
+          object.scale.copy(animData.model.scale);
+          
+          // 如果有动画数据，创建动画剪辑
+          if (animData.animations) {
+            const animations = animData.animations.map((clipData: any) => {
+              return THREE.AnimationClip.parse(clipData);
+            });
+            
+            // 将动画添加到对象
+            (object as any).animations = animations;
+          }
+          
+          animNode.setModel(object);
+          
+          // 恢复动画状态
+          if (animData.currentAnimation && animData.isPlaying) {
+            animNode.play(animData.currentAnimation, {
+              loop: animData.loop,
+              speed: animData.animationSpeed
+            });
+          }
+        }
+      }
+    }
+
+    // 处理 ParticleSystem 数据
+    if (node instanceof ParticleSystem && nodeData.particleSystemData) {
+      const particleSystem = node as ParticleSystem;
+      particleSystem.fromJSON(nodeData);
+    }
+
+    // 处理 LightNode3D 数据
+    if (node instanceof LightNode3D) {
+      const lightNode = node as LightNode3D;
+      lightNode.fromJSON(nodeData);
+    }
   }
   
   /**
    * 反序列化脚本
-   * @param node 节点
-   * @param scriptData 脚本数据
    */
-  private static deserializeScript(node: Node3d, scriptData: any): void {
-    // 优先从ScriptRegistry获取脚本类
+  private static async deserializeScript(node: Node3d, scriptData: any): Promise<void> {
+
     let ScriptConstructor = ScriptRegistry.getScript(scriptData.type);
     
-    // 如果没有从ScriptRegistry找到，尝试使用路径
     if (!ScriptConstructor && scriptData.path) {
       try {
-        // 在实际应用中，您可能需要使用动态导入或其他方式加载脚本
-        // 这里仅作为演示，使用已注册的脚本类型
-        console.log(`尝试从路径加载脚本: ${scriptData.path}`);
-        // 注意：在实际应用中，您需要实现相应的脚本加载逻辑
-        // 例如: ScriptConstructor = await import(scriptData.path).default;
+        // 将完整路径转换为相对路径
+        const fullPath = scriptData.path;
+        const relativePath = fullPath
+          .replace(/\.ts$/, '');
+
+        ScriptConstructor = this.scriptsMap.get(relativePath);
+        console.log(ScriptConstructor,'ScriptConstructor')
+        if (!ScriptConstructor) {
+          console.log(`Attempting to dynamically load script: ${relativePath}`);
+          const importPath = `../../../src/scriptDemo/PlayerController`;
+         console.log(importPath,'importPath')
+          const module = await import(
+            importPath
+          );
+          ScriptConstructor = module.default;
+
+          if (ScriptConstructor) {
+            this.scriptsMap.set(relativePath, ScriptConstructor);
+            ScriptRegistry.registerScript(relativePath, ScriptConstructor);
+          }
+        }
       } catch (error) {
-        console.warn(`从路径加载脚本失败: ${scriptData.path}`, error);
+        console.error(`Failed to load script: ${scriptData.path}`, error);
       }
     }
-    
+
     if (ScriptConstructor) {
-      // 创建脚本实例
-      const script = new ScriptConstructor();
-      
-      // 添加到节点
-      node.addScript(script);
-      
-      // 设置脚本属性
-      if (scriptData.properties && typeof scriptData.properties === 'object') {
-        Object.keys(scriptData.properties).forEach(key => {
-          const propData = scriptData.properties[key];
-          try {
-            if (propData && typeof propData === 'object' && 'value' in propData) {
-              (script as any)[key] = propData.value;
-            } else {
-              (script as any)[key] = propData;
-            }
-          } catch (error) {
-            console.warn(`为脚本设置属性 ${key} 失败:`, error);
-          }
-        });
-      }
-      
-      // 设置启用状态
-      if (scriptData.enabled !== undefined) {
-        script.setEnabled(scriptData.enabled);
+      try {
+        // alert(node.name)
+        node.addScript(ScriptConstructor);
+      } catch (error) {
+        console.error(`Failed to instantiate script: ${scriptData.type}`, error);
       }
     } else {
-      console.warn(`未找到脚本类型: ${scriptData.type}，请确保已注册到ScriptRegistry或提供有效的脚本路径`);
+      console.warn(`Script not found: ${scriptData.type}`);
     }
   }
   
@@ -453,7 +662,52 @@ export class SceneSerializer {
       children: node.children.map(child => this.serializeNode(child)),
       scripts: node.scripts.map(script => this.serializeScript(script))
     };
-    alert(node instanceof ModelLoader3D)
+
+    // 处理 AnimationNode3D 的特殊情况
+    if (node instanceof AnimationNode3D) {
+      const animNode = node as AnimationNode3D;
+      data.animationData = {
+        animationSpeed: animNode.getAnimationSpeed(),
+        transitionDuration: animNode.transitionDuration,
+        isPlaying: animNode.isPlaying,
+        currentAnimation: null, // 将在下面设置
+        loop: true, // 默认值，实际应该从当前动画状态获取
+        
+        // 序列化模型数据
+        model: null, // 将在下面设置
+        
+        // 序列化动画剪辑
+        animations: Array.from(animNode.animations.values()).map(clip => {
+          return clip.toJSON();
+        })
+      };
+
+      // 获取当前播放的动画名称
+      if (animNode.currentAction) {
+        data.animationData.currentAnimation = animNode.currentAction.getClip().name;
+        data.animationData.loop = animNode.currentAction.loop === THREE.LoopRepeat;
+      }
+
+      // 序列化模型
+      const model = animNode.model;
+      if (model) {
+        if (model instanceof ModelLoader3D) {
+          data.animationData.model = {
+            type: 'ModelLoader3D',
+            name: model.name,
+            path: model.modelPath
+          };
+        } else {
+          data.animationData.model = {
+            type: 'Object3D',
+            position: model.position.toArray(),
+            rotation: model.rotation.toArray(),
+            scale: model.scale.toArray()
+          };
+        }
+      }
+    }
+
     // 处理 ModelLoader3D 的特殊情况
     if (node instanceof ModelLoader3D) {
     
@@ -516,110 +770,352 @@ export class SceneSerializer {
     return data;
   }
 
-  private deserializeNode(data: any): Node3d {
-    let node: Node3d;
-
-    // 根据类型创建节点
-    switch (data.type) {
-      case 'ModelLoader3D':
-        node = new ModelLoader3D(data.name);
-        if (data.modelPath) {
-          (node as ModelLoader3D).modelPath = data.modelPath;
-        }
-        break;
-      case 'Mesh':
-        const geometry = this.deserializeGeometry(data.geometry);
-        const material = this.deserializeMaterial(data.material);
-        node = new THREE.Mesh(data.name, geometry, material);
-        break;
-      default:
-        node = new Node3d(data.name);
-    }
-
-    // 设置基本属性
-    node.id = data.id;
-    node.setPosition(data.position);
-    node.setRotation(data.rotation);
-    node.setScale(data.scale);
-    node.isVisible = data.visible;
-
-    // 添加标签
-    data.tags.forEach((tag: string) => node.addTag(tag));
-
-    // 递归处理子节点
-    data.children.forEach((childData: any) => {
-      const child = this.deserializeNode(childData);
-      node.addChild(child);
-    });
-
-    // 处理脚本
-    data.scripts.forEach((scriptData: any) => {
-      this.deserializeScript(node, scriptData);
-    });
-
-    return node;
-  }
-
-  private deserializeGeometry(data: any): THREE.BufferGeometry {
-    if (!data) return null;
-
-    let geometry: THREE.BufferGeometry;
-
-    // 根据类型创建几何体
-    switch (data.type) {
+  // 几何体工厂方法
+  static createGeometry(geoData: any): THREE.BufferGeometry {
+    const { type, parse } = geoData;
+    
+    switch(type) {
+      case 'PlaneGeometry':
+        return new THREE.PlaneGeometry(
+          parse.width,
+          parse.height, 
+          parse.widthSegments,
+          parse.heightSegments
+        );
+        
       case 'BoxGeometry':
-        geometry = new THREE.BoxGeometry();
-        break;
+        return new THREE.BoxGeometry(
+          parse.width,
+          parse.height,
+          parse.depth,
+          parse.widthSegments, 
+          parse.heightSegments,
+          parse.depthSegments
+        );
+        
       case 'SphereGeometry':
-        geometry = new THREE.SphereGeometry();
-        break;
+        return new THREE.SphereGeometry(
+          parse.radius,
+          parse.widthSegments,
+          parse.heightSegments,
+          parse.phiStart,
+          parse.phiLength,
+          parse.thetaStart, 
+          parse.thetaLength
+        );
+
+      case 'CircleGeometry':
+        return new THREE.CircleGeometry(
+          parse.radius,
+          parse.segments,
+          parse.thetaStart,
+          parse.thetaLength
+        );
+
+      case 'ConeGeometry':
+        return new THREE.ConeGeometry(
+          parse.radius,
+          parse.height,
+          parse.radialSegments,
+          parse.heightSegments,
+          parse.openEnded,
+          parse.thetaStart,
+          parse.thetaLength
+        );
+
+      case 'CylinderGeometry':
+        return new THREE.CylinderGeometry(
+          parse.radiusTop,
+          parse.radiusBottom,
+          parse.height,
+          parse.radialSegments,
+          parse.heightSegments,
+          parse.openEnded,
+          parse.thetaStart,
+          parse.thetaLength
+        );
+
+      case 'DodecahedronGeometry':
+        return new THREE.DodecahedronGeometry(
+          parse.radius,
+          parse.detail
+        );
+
+      case 'IcosahedronGeometry':
+        return new THREE.IcosahedronGeometry(
+          parse.radius,
+          parse.detail
+        );
+
+      case 'OctahedronGeometry':
+        return new THREE.OctahedronGeometry(
+          parse.radius,
+          parse.detail
+        );
+
+      case 'RingGeometry':
+        return new THREE.RingGeometry(
+          parse.innerRadius,
+          parse.outerRadius,
+          parse.thetaSegments,
+          parse.phiSegments,
+          parse.thetaStart,
+          parse.thetaLength
+        );
+
+      case 'TetrahedronGeometry':
+        return new THREE.TetrahedronGeometry(
+          parse.radius,
+          parse.detail
+        );
+
+      case 'TorusGeometry':
+        return new THREE.TorusGeometry(
+          parse.radius,
+          parse.tube,
+          parse.radialSegments,
+          parse.tubularSegments,
+          parse.arc
+        );
+
+      case 'TorusKnotGeometry':
+        return new THREE.TorusKnotGeometry(
+          parse.radius,
+          parse.tube,
+          parse.tubularSegments,
+          parse.radialSegments,
+          parse.p,
+          parse.q
+        );
+
+      case 'TubeGeometry':
+        // 注意: 这个需要特殊处理,因为需要路径
+        console.warn('TubeGeometry需要自定义路径,请单独处理');
+        return new THREE.BufferGeometry();
+
+      case 'ExtrudeGeometry':
+        // 注意: 这个需要特殊处理,因为需要形状
+        console.warn('ExtrudeGeometry需要自定义形状,请单独处理');
+        return new THREE.BufferGeometry();
+
+      case 'LatheGeometry':
+        // 注意: 这个需要特殊处理,因为需要点数组
+        console.warn('LatheGeometry需要自定义点数组,请单独处理');
+        return new THREE.BufferGeometry();
+
+      case 'ShapeGeometry':
+        // 注意: 这个需要特殊处理,因为需要形状
+        console.warn('ShapeGeometry需要自定义形状,请单独处理');
+        return new THREE.BufferGeometry();
+        
       default:
-        geometry = new THREE.BufferGeometry();
+        console.warn(`未支持的几何体类型: ${type}`);
+        return new THREE.BufferGeometry();
     }
-
-    // 设置属性
-    for (const name in data.attributes) {
-      const attribute = data.attributes[name];
-      geometry.setAttribute(
-        name,
-        new THREE.BufferAttribute(
-          new Float32Array(attribute.array),
-          attribute.itemSize,
-          attribute.normalized
-        )
-      );
-    }
-
-    return geometry;
   }
 
-  private deserializeMaterial(data: any): THREE.Material {
-    if (!data) return null;
-
-    let material: THREE.Material;
-
-    // 根据类型创建材质
-    switch (data.type) {
+  // 材质工厂方法 
+  static createMaterial(matData: any): THREE.Material {
+    const { type, parse } = matData;
+    
+    switch(type) {
       case 'MeshStandardMaterial':
-        material = new THREE.MeshStandardMaterial();
-        (material as THREE.MeshStandardMaterial).roughness = data.roughness;
-        (material as THREE.MeshStandardMaterial).metalness = data.metalness;
-        (material as THREE.MeshStandardMaterial).envMapIntensity = data.envMapIntensity;
-        break;
+        return new THREE.MeshStandardMaterial({
+          color: parse.color,
+          roughness: parse.roughness,
+          metalness: parse.metalness,
+          emissive: parse.emissive,
+          emissiveIntensity: parse.emissiveIntensity,
+          side: parse.side,
+          envMapIntensity: parse.envMapIntensity,
+          transparent: parse.transparent,
+          opacity: parse.opacity,
+          alphaTest: parse.alphaTest,
+          wireframe: parse.wireframe
+        });
+        
+      case 'MeshBasicMaterial':
+        return new THREE.MeshBasicMaterial({
+          color: parse.color,
+          side: parse.side,
+          transparent: parse.transparent,
+          opacity: parse.opacity,
+          alphaTest: parse.alphaTest,
+          wireframe: parse.wireframe
+        });
+
+      case 'MeshPhongMaterial':
+        return new THREE.MeshPhongMaterial({
+          color: parse.color,
+          emissive: parse.emissive,
+          specular: parse.specular,
+          shininess: parse.shininess,
+          side: parse.side,
+          transparent: parse.transparent,
+          opacity: parse.opacity,
+          wireframe: parse.wireframe
+        });
+
+      case 'MeshLambertMaterial':
+        return new THREE.MeshLambertMaterial({
+          color: parse.color,
+          emissive: parse.emissive,
+          side: parse.side,
+          transparent: parse.transparent,
+          opacity: parse.opacity,
+          wireframe: parse.wireframe
+        });
+
+      case 'MeshToonMaterial':
+        return new THREE.MeshToonMaterial({
+          color: parse.color,
+          emissive: parse.emissive,
+          side: parse.side,
+          transparent: parse.transparent,
+          opacity: parse.opacity,
+          wireframe: parse.wireframe
+        });
+
+      case 'MeshNormalMaterial':
+        return new THREE.MeshNormalMaterial({
+          side: parse.side,
+          transparent: parse.transparent,
+          opacity: parse.opacity,
+          wireframe: parse.wireframe
+        });
+
+      case 'MeshDepthMaterial':
+        return new THREE.MeshDepthMaterial({
+          side: parse.side,
+          transparent: parse.transparent,
+          opacity: parse.opacity,
+          wireframe: parse.wireframe
+        });
+
+      case 'MeshMatcapMaterial':
+        return new THREE.MeshMatcapMaterial({
+          color: parse.color,
+          side: parse.side,
+          transparent: parse.transparent,
+          opacity: parse.opacity,
+          wireframe: parse.wireframe
+        });
+
+      case 'LineBasicMaterial':
+        return new THREE.LineBasicMaterial({
+          color: parse.color,
+          linewidth: parse.linewidth,
+          linecap: parse.linecap,
+          linejoin: parse.linejoin
+        });
+
+      case 'LineDashedMaterial':
+        return new THREE.LineDashedMaterial({
+          color: parse.color,
+          linewidth: parse.linewidth,
+          scale: parse.scale,
+          dashSize: parse.dashSize,
+          gapSize: parse.gapSize
+        });
+
+      case 'PointsMaterial':
+        return new THREE.PointsMaterial({
+          color: parse.color,
+          size: parse.size,
+          sizeAttenuation: parse.sizeAttenuation
+        });
+
+      case 'SpriteMaterial':
+        return new THREE.SpriteMaterial({
+          color: parse.color,
+          transparent: parse.transparent,
+          opacity: parse.opacity
+        });
+
+      case 'ShaderMaterial':
+        // 注意: 这个需要特殊处理,因为需要自定义着色器
+        console.warn('ShaderMaterial需要自定义着色器,请单独处理');
+        return new THREE.MeshBasicMaterial();
+
+      case 'RawShaderMaterial':
+        // 注意: 这个需要特殊处理,因为需要自定义着色器
+        console.warn('RawShaderMaterial需要自定义着色器,请单独处理');
+        return new THREE.MeshBasicMaterial();
+        
       default:
-        material = new THREE.MeshBasicMaterial();
+        console.warn(`未支持的材质类型: ${type}`);
+        return new THREE.MeshBasicMaterial();
+    }
+  }
+
+  // 创建网格
+  static createMesh(data: any): THREE.Mesh {
+    const geometry = this.createGeometry(data.geometry);
+    const material = this.createMaterial(data.material);
+    return new THREE.Mesh(geometry, material);
+  }
+
+  // 序列化网格为JSON
+  static serializeMesh(mesh: THREE.Mesh) {
+    return {
+      geometry: {
+        type: mesh.geometry.type,
+        parse: mesh.geometry.toJSON()
+      },
+      material: {
+        type: mesh.material.type,
+        parse: mesh.material.toJSON()
+      }
+    };
+  }
+
+  // 处理纹理
+  static handleTexture(textureData: any): THREE.Texture | null {
+    if (!textureData) return null;
+    
+    const texture = new THREE.TextureLoader().load(textureData.image);
+    texture.wrapS = textureData.wrapS;
+    texture.wrapT = textureData.wrapT;
+    texture.repeat.set(textureData.repeat.x, textureData.repeat.y);
+    texture.offset.set(textureData.offset.x, textureData.offset.y);
+    texture.rotation = textureData.rotation;
+    texture.center.set(textureData.center.x, textureData.center.y);
+    
+    return texture;
+  }
+
+  /**
+   * 序列化脚本时获取脚本路径
+   */
+  private static getScriptPath(script: any): string | null {
+    if (!this.projectRoot) {
+      console.warn('Project root not set! Please call setProjectRoot first.');
+      return null;
     }
 
-    // 设置基本属性
-    material.uuid = data.uuid;
-    material.name = data.name;
-    if (data.color) material.color.setHex(data.color);
-    material.opacity = data.opacity;
-    material.transparent = data.transparent;
-    material.side = data.side;
-    material.depthWrite = data.depthWrite;
-    material.depthTest = data.depthTest;
+    for (const [relativePath, constructor] of this.scriptsMap.entries()) {
+      if (script instanceof constructor) {
+        return `${this.projectRoot}/src/demoScript/${relativePath}.ts`;
+      }
+    }
+    return null;
+  }
 
-    return material;
+  /**
+   * 序列化脚本
+   */
+  private static serializeScript(script: any): any {
+    const scriptPath = this.getScriptPath(script);
+    if (!scriptPath) {
+      console.warn('Unable to determine script path for:', script);
+      return null;
+    }
+
+    return {
+      type: script.constructor.name,
+      path: scriptPath,
+      enabled: script.isEnabled?.(),
+      properties: script.getSerializableProperties?.() || {}
+    };
   }
 }

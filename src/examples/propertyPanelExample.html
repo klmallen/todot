@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>属性面板示例</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    
+    #container {
+      width: 100%;
+      height: 100vh;
+      position: relative;
+    }
+    
+    #canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    .info-overlay {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 15px;
+      border-radius: 8px;
+      max-width: 400px;
+      z-index: 1000;
+      color: #fff;
+    }
+    
+    .info-overlay h3 {
+      margin-top: 0;
+      color: #3080ff;
+    }
+    
+    .button {
+      padding: 8px 12px;
+      background-color: #3080ff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+    }
+    
+    .button:hover {
+      background-color: #4090ff;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <canvas id="canvas"></canvas>
+    
+    <div class="info-overlay">
+      <h3>属性面板示例</h3>
+      <p>引擎会在初始化时自动在右侧创建属性面板，并通过effect自动监听当前选中的节点。</p>
+      <p>点击上方的按钮可以切换显示不同节点的属性。</p>
+    </div>
+  </div>
+  
+  <script type="module">
+    import Engine from '../engine/core/Engine.js';
+    import { Node3d } from '../engine/core/Node3d.js';
+    import { Scene } from '../engine/core/Scene.js';
+    
+    // 初始化引擎
+    async function initExample() {
+      const canvas = document.getElementById('canvas');
+      const container = document.getElementById('container');
+      
+      // 初始化引擎 - 属性面板默认显示
+      const engine = new Engine(canvas);
+      await engine.init({
+        showHelpers: true,
+        addDefaultLights: true
+        // 默认显示属性面板 (showPropertyPanel默认为true)
+      });
+      
+      // 创建场景
+      const scene = new Scene('示例场景');
+      engine.addScene(scene);
+      
+      // 创建一些测试对象
+      const cubeNode = new Node3d('立方体');
+      scene.addNode(cubeNode);
+      
+      const sphereNode = new Node3d('球体');
+      scene.addNode(sphereNode);
+      
+      // 激活场景并启动引擎
+      engine.activateScene('示例场景');
+      await engine.start();
+      
+      // 切换按钮
+      const button = document.createElement('button');
+      button.textContent = '切换节点';
+      button.className = 'button';
+      container.appendChild(button);
+      
+      // 当前显示的节点索引
+      let currentNodeIndex = 0;
+      const nodes = [cubeNode, sphereNode];
+      
+      // 添加切换事件
+      button.addEventListener('click', () => {
+        currentNodeIndex = (currentNodeIndex + 1) % nodes.length;
+        // 使用引擎的updatePropertyPanelNode方法更新显示的节点
+        engine.updatePropertyPanelNode(nodes[currentNodeIndex]);
+      });
+    }
+    
+    // 当DOM加载完成后初始化示例
+    document.addEventListener('DOMContentLoaded', initExample);
+  </script>
+</body>
+</html> 

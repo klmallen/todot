@@ -81,6 +81,16 @@ interface AnimationController {
 }
 
 /**
+ * 骨骼显示选项
+ */
+export interface SkeletonVisualOptions {
+  showSkeleton: boolean;       // 显示骨骼
+  boneColor: number;           // 骨骼颜色
+  jointColor: number;          // 关节颜色
+  boneSize: number;            // 骨骼大小
+}
+
+/**
  * ModelLoader3D 类 - 用于加载和渲染GLB/GLTF/FBX模型
  * 继承自 Node3d
  */
@@ -157,6 +167,36 @@ export class ModelLoader3D extends Node3d implements PromiseLike<THREE.Group> {
   // DOM元素引用
   private domElement: HTMLElement | null = null;
 
+  // 骨骼显示相关属性
+  private skeletonHelper: THREE.SkeletonHelper | null = null;
+  
+  @editable({
+    displayName: '显示骨骼',
+    description: '是否显示模型骨骼结构',
+    type: 'boolean',
+    group: '可视化'
+  })
+  private showSkeleton: boolean = false;
+  
+  @editable({
+    displayName: '骨骼颜色',
+    description: '骨骼线条的颜色',
+    type: 'color',
+    group: '可视化'
+  })
+  private boneColor: number = 0xffffff;
+  
+  @editable({
+    displayName: '骨骼大小',
+    description: '骨骼线条的粗细',
+    type: 'number',
+    min: 0.1,
+    max: 10,
+    step: 0.1,
+    group: '可视化'
+  })
+  private boneSize: number = 1.0;
+
   constructor(name: string = '模型加载器', modelPath?: string, options?: { position?: THREE.Vector3, rotation?: THREE.Euler }) {
     super(name, options);
     this.gltfLoader = new GLTFLoader();
@@ -199,7 +239,7 @@ export class ModelLoader3D extends Node3d implements PromiseLike<THREE.Group> {
   public loadModel(path: string): void {
     // 根据文件扩展名选择合适的加载器
     const extension = path.split('.').pop()?.toLowerCase();
-
+    this.modelPath = path;
     if (extension === 'fbx') {
       // 使用FBX加载器
       this.loadFBXModel(path);
@@ -247,17 +287,20 @@ export class ModelLoader3D extends Node3d implements PromiseLike<THREE.Group> {
           }
         }
 
-        // 处理模型结构，隐藏骨骼和辅助对象
+        // 处理模型结构，默认隐藏骨骼和辅助对象
         this.model.traverse((object: THREE.Object3D) => {
-          // 隐藏骨骼和辅助对象
+          // 骨骼和辅助对象的可见性现在由showSkeleton控制
           if (object.type === 'Bone' ||
               object.name.includes('helper') ||
               object.name.includes('Helper') ||
               object.name.includes('Skeleton') ||
               object.name.includes('Control')) {
-            object.visible = false;
+            object.visible = this.showSkeleton;
           }
         });
+        
+        // 调用我们的模型加载完成处理
+        this.onModelLoaded();
         
         // 调用加载完成回调
         if (this.onLoadedCallback && this.model) {
@@ -1404,6 +1447,11 @@ export class ModelLoader3D extends Node3d implements PromiseLike<THREE.Group> {
         }
       }
     }
+
+    // 更新骨骼辅助对象
+    if (this.skeletonHelper && this.showSkeleton) {
+      this.skeletonHelper.update();
+    }
   }
 
   /**
@@ -1413,6 +1461,140 @@ export class ModelLoader3D extends Node3d implements PromiseLike<THREE.Group> {
     const json = super.toJSON();
     json.modelPath = this.modelPath;
     return json;
+  }
+
+  /**
+   * 获取模型路径
+   */
+  public getModelPath(): string {
+    return this.modelPath;
+  }
+
+  /**
+   * 设置骨骼显示选项
+   * @param options 骨骼显示选项
+   */
+  @editable({
+    displayName: '设置骨骼显示',
+    description: '配置骨骼显示选项',
+    type: 'function',
+    group: '可视化'
+  })
+  public setSkeletonOptions(options: Partial<SkeletonVisualOptions>): void {
+    // 更新选项
+    if (options.showSkeleton !== undefined) {
+      this.showSkeleton = options.showSkeleton;
+    }
+    
+    if (options.boneColor !== undefined) {
+      this.boneColor = options.boneColor;
+    }
+    
+    if (options.boneSize !== undefined) {
+      this.boneSize = options.boneSize;
+    }
+    
+    // 应用更改
+    this.updateSkeletonVisibility();
+  }
+  
+  /**
+   * 显示/隐藏骨骼
+   * @param show 是否显示骨骼
+   */
+  @editable({
+    displayName: '显示/隐藏骨骼',
+    description: '控制模型骨骼的显示状态',
+    type: 'boolean',
+    group: '可视化'
+  })
+  public showSkeletonHelper(show: boolean): void {
+    this.showSkeleton = show;
+    this.updateSkeletonVisibility();
+  }
+  
+  /**
+   * 设置骨骼颜色
+   * @param color 骨骼颜色（十六进制）
+   */
+  @editable({
+    displayName: '设置骨骼颜色',
+    description: '设置骨骼显示的颜色',
+    type: 'color',
+    group: '可视化'
+  })
+  public setSkeletonColor(color: number): void {
+    this.boneColor = color;
+    
+    // 如果骨骼辅助对象已存在，更新颜色
+    if (this.skeletonHelper) {
+      (this.skeletonHelper.material as THREE.LineBasicMaterial).color.setHex(color);
+    }
+  }
+  
+  /**
+   * 更新骨骼显示状态
+   * @private
+   */
+  private updateSkeletonVisibility(): void {
+    // 首先检查模型是否已加载
+    if (!this.model) return;
+    
+    // 如果需要显示骨骼但没有骨骼辅助对象，创建一个
+    if (this.showSkeleton && !this.skeletonHelper) {
+      // 查找模型中的骨骼
+      let rootBone: THREE.Bone | null = null;
+      
+      this.model.traverse((object) => {
+        // 查找SkinnedMesh
+        if (object instanceof THREE.SkinnedMesh && object.skeleton) {
+          // 使用第一个骨骼作为根骨骼
+          if (object.skeleton.bones.length > 0 && !rootBone) {
+            rootBone = object.skeleton.bones[0];
+          }
+        }
+      });
+      
+      // 如果找到了骨骼，创建骨骼辅助对象
+      if (rootBone) {
+        this.skeletonHelper = new THREE.SkeletonHelper(rootBone);
+        
+        // 设置骨骼颜色和大小
+        const material = this.skeletonHelper.material as THREE.LineBasicMaterial;
+        material.color.setHex(this.boneColor);
+        material.linewidth = this.boneSize;
+        
+        // 将骨骼辅助对象添加到场景
+        const scene = this.getScene();
+        if (scene) {
+          scene.add(this.skeletonHelper);
+        } else {
+          this.getThreeObject().add(this.skeletonHelper);
+        }
+      }
+    } 
+    // 如果已有骨骼辅助对象，控制其可见性
+    else if (this.skeletonHelper) {
+      this.skeletonHelper.visible = this.showSkeleton;
+      
+      // 更新骨骼颜色和大小
+      const material = this.skeletonHelper.material as THREE.LineBasicMaterial;
+      material.color.setHex(this.boneColor);
+      material.linewidth = this.boneSize;
+    }
+  }
+  
+  /**
+   * 覆盖原有的加载完成处理，添加骨骼处理
+   */
+  private onModelLoaded(): void {
+    // 初始化骨骼显示
+    this.updateSkeletonVisibility();
+    
+    // 如果设置了显示骨骼，确保显示
+    if (this.showSkeleton) {
+      this.showSkeletonHelper(true);
+    }
   }
 }
 

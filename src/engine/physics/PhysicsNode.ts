@@ -5,6 +5,16 @@ import { editable, editableComponent } from '../core/decorators';
 import Engine from '../core/Engine';
 
 /**
+ * 碰撞体可视化选项
+ */
+export interface ColliderVisualOptions {
+  visible: boolean;       // 是否可见
+  color: number;          // 颜色
+  opacity: number;        // 透明度
+  wireframe: boolean;     // 是否显示为线框
+}
+
+/**
  * 物理节点
  * 具有物理模拟能力的3D节点
  */
@@ -134,9 +144,39 @@ export class PhysicsNode extends Node3d {
     displayName: '显示碰撞体',
     description: '是否显示碰撞体的可视化表示',
     type: 'boolean',
-    group: 'Physics'
+    group: '可视化'
   })
   private showCollider: boolean = false;
+  
+  /** 碰撞体颜色 */
+  @editable({
+    displayName: '碰撞体颜色',
+    description: '碰撞体可视化的颜色',
+    type: 'color',
+    group: '可视化'
+  })
+  private colliderColor: number = 0x00ff00;
+  
+  /** 碰撞体透明度 */
+  @editable({
+    displayName: '碰撞体透明度',
+    description: '碰撞体可视化的透明度 (0-1)',
+    type: 'slider',
+    min: 0,
+    max: 1,
+    step: 0.1,
+    group: '可视化'
+  })
+  private colliderOpacity: number = 0.3;
+  
+  /** 碰撞体线框模式 */
+  @editable({
+    displayName: '线框模式',
+    description: '是否将碰撞体显示为线框',
+    type: 'boolean',
+    group: '可视化'
+  })
+  private colliderWireframe: boolean = true;
   
   /** 碰撞体可视化对象 */
   private colliderVisual: THREE.Object3D | null = null;
@@ -228,6 +268,68 @@ export class PhysicsNode extends Node3d {
   }
   
   /**
+   * 设置碰撞体可视化选项
+   * @param options 可视化选项
+   */
+  @editable({
+    displayName: '设置碰撞体可视化',
+    description: '配置碰撞体可视化选项',
+    type: 'function',
+    group: '可视化'
+  })
+  public setColliderVisualOptions(options: Partial<ColliderVisualOptions>): void {
+    let needsUpdate = false;
+    
+    if (options.visible !== undefined && options.visible !== this.showCollider) {
+      this.showCollider = options.visible;
+      needsUpdate = true;
+    }
+    
+    if (options.color !== undefined && options.color !== this.colliderColor) {
+      this.colliderColor = options.color;
+      needsUpdate = true;
+    }
+    
+    if (options.opacity !== undefined && options.opacity !== this.colliderOpacity) {
+      this.colliderOpacity = options.opacity;
+      needsUpdate = true;
+    }
+    
+    if (options.wireframe !== undefined && options.wireframe !== this.colliderWireframe) {
+      this.colliderWireframe = options.wireframe;
+      needsUpdate = true;
+    }
+    
+    // 如果有修改，更新碰撞体可视化
+    if (needsUpdate) {
+      if (this.showCollider) {
+        this.createColliderVisual();
+      } else {
+        this.removeColliderVisual();
+      }
+    }
+  }
+  
+  /**
+   * 获取碰撞体可视化选项
+   * @returns 当前的可视化选项
+   */
+  @editable({
+    displayName: '获取碰撞体可视化',
+    description: '获取当前碰撞体可视化选项',
+    type: 'function',
+    group: '可视化'
+  })
+  public getColliderVisualOptions(): ColliderVisualOptions {
+    return {
+      visible: this.showCollider,
+      color: this.colliderColor,
+      opacity: this.colliderOpacity,
+      wireframe: this.colliderWireframe
+    };
+  }
+  
+  /**
    * 创建碰撞体可视化
    */
   private createColliderVisual(): void {
@@ -237,6 +339,15 @@ export class PhysicsNode extends Node3d {
     if (!this.collider) return;
     
     let visualMesh: THREE.Mesh | null = null;
+    
+    // 创建材质
+    const material = new THREE.MeshBasicMaterial({ 
+      color: this.colliderColor, 
+      wireframe: this.colliderWireframe,
+      transparent: this.colliderOpacity < 1,
+      opacity: this.colliderOpacity,
+      side: THREE.DoubleSide
+    });
     
     // 基于碰撞体类型创建可视化
     switch (this.colliderType) {
@@ -250,15 +361,7 @@ export class PhysicsNode extends Node3d {
             boxShape.halfExtents.y * 2,
             boxShape.halfExtents.z * 2
           );
-          visualMesh = new THREE.Mesh(
-            geometry,
-            new THREE.MeshBasicMaterial({ 
-              color: 0x00ff00, 
-              wireframe: true,
-              transparent: true,
-              opacity: 0.3
-            })
-          );
+          visualMesh = new THREE.Mesh(geometry, material);
         }
         break;
         
@@ -268,15 +371,7 @@ export class PhysicsNode extends Node3d {
         if (sphereBody.shapes[0].type === CANNON.Shape.types.SPHERE) {
           const sphereShape = sphereBody.shapes[0] as CANNON.Sphere;
           const geometry = new THREE.SphereGeometry(sphereShape.radius, 16, 16);
-          visualMesh = new THREE.Mesh(
-            geometry,
-            new THREE.MeshBasicMaterial({ 
-              color: 0x00ff00, 
-              wireframe: true,
-              transparent: true,
-              opacity: 0.3
-            })
-          );
+          visualMesh = new THREE.Mesh(geometry, material);
         }
         break;
         
@@ -291,15 +386,7 @@ export class PhysicsNode extends Node3d {
             cylinderShape.height,
             16
           );
-          visualMesh = new THREE.Mesh(
-            geometry,
-            new THREE.MeshBasicMaterial({ 
-              color: 0x00ff00, 
-              wireframe: true,
-              transparent: true,
-              opacity: 0.3
-            })
-          );
+          visualMesh = new THREE.Mesh(geometry, material);
           
           // 旋转以匹配CANNON的圆柱体方向
           visualMesh.rotation.x = Math.PI / 2;
@@ -309,16 +396,7 @@ export class PhysicsNode extends Node3d {
       case CannonColliderType.PLANE:
         // 创建平面可视化
         const planeGeometry = new THREE.PlaneGeometry(10, 10);
-        visualMesh = new THREE.Mesh(
-          planeGeometry,
-          new THREE.MeshBasicMaterial({ 
-            color: 0x00ff00, 
-            wireframe: true,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.3
-          })
-        );
+        visualMesh = new THREE.Mesh(planeGeometry, material);
         break;
         
       case CannonColliderType.TRIMESH:
@@ -340,15 +418,7 @@ export class PhysicsNode extends Node3d {
         );
         
         const boxGeometry = new THREE.BoxGeometry(size.x, size.y, size.z);
-        visualMesh = new THREE.Mesh(
-          boxGeometry,
-          new THREE.MeshBasicMaterial({ 
-            color: 0xff0000, 
-            wireframe: true,
-            transparent: true,
-            opacity: 0.3
-          })
-        );
+        visualMesh = new THREE.Mesh(boxGeometry, material);
         
         visualMesh.position.copy(center);
         break;
@@ -439,22 +509,6 @@ export class PhysicsNode extends Node3d {
     } else {
       // 禁用物理
       this.cleanupPhysics();
-    }
-  }
-  
-  /**
-   * 设置是否显示碰撞体
-   * @param show 是否显示
-   */
-  public setShowCollider(show: boolean): void {
-    this.showCollider = show;
-    
-    if (show) {
-      // 显示碰撞体
-      this.createColliderVisual();
-    } else {
-      // 隐藏碰撞体
-      this.removeColliderVisual();
     }
   }
   

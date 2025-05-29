@@ -6,9 +6,10 @@ export abstract class Script {
   protected enabled: boolean = true;
   protected id: string;
   private node: Node3d | null = null;
-
+  public path = '/'
   constructor(params?: any) {
     this.id = uuidv4();
+    this.path = params?.path || '/'
   }
 
   /**

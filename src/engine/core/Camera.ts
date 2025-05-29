@@ -28,4 +28,12 @@ export class Camera {
   updateProjectionMatrix(): void {
     this.camera.updateProjectionMatrix();
   }
+
+  /**
+   * 设置 Three.js 相机实例
+   * @param camera Three.js 相机实例
+   */
+  public setThreeCamera(camera: THREE.PerspectiveCamera): void {
+    this.camera = camera;
+  }
 } 

@@ -47,12 +47,43 @@ export class AnimationNode3D extends Node3d {
    * 设置模型并初始化动画系统
    */
   setModel(model: THREE.Object3D | ModelLoader3D): void {
+    // 如果之前有模型，先移除它
+    if (this.model) {
+      this.getThreeObject().remove(this.model);
+    }
+
     if (model instanceof ModelLoader3D) {
-      this.model = model.getModel();
-      this.animations = model.getAnimations();
-      console.log(model,'model.getModel()')
+      const modelInstance = model.getModel();
+      if (modelInstance) {
+        // 保存原始模型的变换属性
+        const originalScale = model.getThreeObject().scale.clone();
+        const originalPosition = model.getThreeObject().position.clone();
+        const originalRotation = model.getThreeObject().rotation.clone();
+        
+        this.model = modelInstance;
+        // 应用原始变换属性
+        this.model.scale.copy(originalScale);
+        this.model.position.copy(originalPosition);
+        this.model.rotation.copy(originalRotation);
+        
+        this.animations = model.getAnimations();
+        // 将模型添加为当前节点的子对象
+        this.getThreeObject().add(this.model);
+      }
     } else {
+      // 保存原始模型的变换属性
+      const originalScale = model.scale.clone();
+      const originalPosition = model.position.clone();
+      const originalRotation = model.rotation.clone();
+      
       this.model = model;
+      // 应用原始变换属性
+      this.model.scale.copy(originalScale);
+      this.model.position.copy(originalPosition);
+      this.model.rotation.copy(originalRotation);
+      
+      // 将模型添加为当前节点的子对象
+      this.getThreeObject().add(this.model);
       
       // 检查并提取普通Object3D中的动画
       if (model) {
@@ -75,9 +106,8 @@ export class AnimationNode3D extends Node3d {
         });
       }
     }
-    console.log(this.model,'this.model')
+
     if (this.model) {
-      
       this.mixer = new THREE.AnimationMixer(this.model);
       
       // 在控制台输出可用的动画
@@ -264,5 +294,152 @@ export class AnimationNode3D extends Node3d {
    */
   setTransitionDuration(duration: number): void {
     this.transitionDuration = duration;
+  }
+
+  /**
+   * 获取当前动画混合器
+   */
+  public getMixer(): THREE.AnimationMixer | null {
+    return this.mixer;
+  }
+
+  /**
+   * 获取当前动作
+   */
+  public getCurrentAction(): THREE.AnimationAction | null {
+    return this.currentAction;
+  }
+
+  /**
+   * 获取动画集合
+   */
+  public getAnimations(): Map<string, THREE.AnimationClip> {
+    return this.animations;
+  }
+
+  /**
+   * 获取模型
+   */
+  public getModel(): THREE.Object3D | null {
+    return this.model;
+  }
+
+  /**
+   * 获取是否正在播放
+   */
+  public getIsPlaying(): boolean {
+    return this.isPlaying;
+  }
+
+  /**
+   * 获取过渡时间
+   */
+  public getTransitionDuration(): number {
+    return this.transitionDuration;
+  }
+
+  /**
+   * 序列化为JSON
+   */
+  public override toJSON(): any {
+    const json = super.toJSON();
+    
+    return {
+      ...json,
+      type: 'AnimationNode3D',
+      animationData: {
+        animationSpeed: this.getAnimationSpeed(),
+        transitionDuration: this.getTransitionDuration(),
+        isPlaying: this.getIsPlaying(),
+        currentAnimation: this.currentAction ? this.currentAction.getClip().name : null,
+        loop: this.currentAction ? this.currentAction.loop === THREE.LoopRepeat : true,
+        
+        // 序列化动画剪辑
+        animations: Array.from(this.animations.values()).map(clip => clip.toJSON()),
+        
+        // 序列化模型数据
+        model: this.serializeModel()
+      }
+    };
+  }
+
+  /**
+   * 序列化模型数据
+   */
+  private serializeModel(): any {
+    if (!this.model) return null;
+
+    // 使用类型断言来处理ModelLoader3D的情况
+    if (this.model instanceof ModelLoader3D) {
+      const modelLoader = this.model as ModelLoader3D;
+      return {
+        type: 'ModelLoader3D',
+        name: modelLoader.name,
+        path: modelLoader.getModelPath()
+      };
+    }
+
+    return {
+      type: 'Object3D',
+      position: this.model.position.toArray(),
+      rotation: this.model.rotation.toArray(),
+      scale: this.model.scale.toArray()
+    };
+  }
+
+  /**
+   * 从JSON恢复
+   */
+  public deserialize(json: any): void {
+    if (json.animationData) {
+      const animData = json.animationData;
+
+      // 恢复基本属性
+      this.setSpeed(animData.animationSpeed);
+      this.setTransitionDuration(animData.transitionDuration);
+
+      // 恢复模型
+      if (animData.model) {
+        if (animData.model.type === 'ModelLoader3D') {
+          const modelLoader = new ModelLoader3D(animData.model.name);
+          // 使用async/await处理Promise
+          (async () => {
+            await modelLoader.loadModel(animData.model.path);
+            this.setModel(modelLoader);
+            
+            // 恢复动画状态
+            if (animData.currentAnimation && animData.isPlaying) {
+              this.play(animData.currentAnimation, {
+                loop: animData.loop,
+                speed: animData.animationSpeed
+              });
+            }
+          })();
+        } else {
+          const object = new THREE.Object3D();
+          object.position.fromArray(animData.model.position);
+          object.rotation.fromArray(animData.model.rotation);
+          object.scale.fromArray(animData.model.scale);
+
+          // 恢复动画剪辑
+          if (animData.animations) {
+            const animations = animData.animations.map((clipData: any) => 
+              THREE.AnimationClip.parse(clipData)
+            );
+            (object as any).animations = animations;
+          }
+
+          this.setModel(object);
+
+          // 恢复动画状态
+          if (animData.currentAnimation && animData.isPlaying) {
+            this.play(animData.currentAnimation, {
+              loop: animData.loop,
+              speed: animData.animationSpeed
+            });
+          }
+        }
+      }
+    }
   }
 } 

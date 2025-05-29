@@ -4,6 +4,21 @@ import { editable, editableComponent } from './decorators';
 import Stats from 'three/examples/jsm/libs/stats.module.js'
 
 /**
+ * 材质编辑选项
+ */
+export interface MaterialEditOptions {
+  wireframe?: boolean;          // 线框模式
+  flatShading?: boolean;        // 平面着色
+  vertexColors?: boolean;       // 顶点颜色
+  transparency?: number;        // 透明度
+  color?: number;               // 颜色
+  metalness?: number;           // 金属度
+  roughness?: number;           // 粗糙度
+  emissive?: number;            // 自发光颜色
+  emissiveIntensity?: number;   // 自发光强度
+}
+
+/**
  * MeshInstance3D 类 - 表示可渲染的3D网格实例
  * 继承自 Node3d，添加了网格、几何体和材质支持
  */
@@ -558,16 +573,14 @@ export class MeshInstance3D extends Node3d {
     
     // 添加网格特定数据
     json.geometry = {
-      type: this.geometry.type
-      // 可以添加更多几何体数据
+      type: this.geometry.type,
+      parse:this.geometry.toJSON()
     };
     
     // 添加材质信息
     json.material = {
       type: this.material.type,
-      color: (this.material as any).color?.getHex(),
-      transparent: (this.material as any).transparent,
-      opacity: (this.material as any).opacity
+      parse:this.material.toJSON()
       // 可以添加更多材质属性
     };
     
@@ -578,5 +591,190 @@ export class MeshInstance3D extends Node3d {
     };
     
     return json;
+  }
+
+  /**
+   * 设置材质选项
+   * @param options 材质选项
+   */
+  @editable({
+    displayName: '设置材质选项',
+    description: '配置材质渲染选项',
+    type: 'function',
+    group: '材质'
+  })
+  public setMaterialOptions(options: MaterialEditOptions): void {
+    if (!this.material) return;
+
+    const material = this.material;
+    
+    // 通用属性检查和设置
+    if (options.wireframe !== undefined && 'wireframe' in material) {
+      (material as THREE.MeshBasicMaterial).wireframe = options.wireframe;
+    }
+    
+    if (options.flatShading !== undefined && 'flatShading' in material) {
+      (material as THREE.MeshStandardMaterial).flatShading = options.flatShading;
+      material.needsUpdate = true;
+    }
+    
+    if (options.vertexColors !== undefined && 'vertexColors' in material) {
+      (material as THREE.MeshStandardMaterial).vertexColors = options.vertexColors;
+      material.needsUpdate = true;
+    }
+    
+    if (options.transparency !== undefined) {
+      material.transparent = options.transparency > 0;
+      material.opacity = 1 - options.transparency;
+    }
+    
+    if (options.color !== undefined && 'color' in material) {
+      (material as THREE.MeshStandardMaterial).color.setHex(options.color);
+    }
+    
+    if (options.metalness !== undefined && 'metalness' in material) {
+      (material as THREE.MeshStandardMaterial).metalness = options.metalness;
+    }
+    
+    if (options.roughness !== undefined && 'roughness' in material) {
+      (material as THREE.MeshStandardMaterial).roughness = options.roughness;
+    }
+    
+    if (options.emissive !== undefined && 'emissive' in material) {
+      (material as THREE.MeshStandardMaterial).emissive.setHex(options.emissive);
+    }
+    
+    if (options.emissiveIntensity !== undefined && 'emissiveIntensity' in material) {
+      (material as THREE.MeshStandardMaterial).emissiveIntensity = options.emissiveIntensity;
+    }
+    
+    // 确保更新
+    material.needsUpdate = true;
+  }
+
+  /**
+   * 获取材质选项
+   * @returns 当前材质选项
+   */
+  @editable({
+    displayName: '获取材质选项',
+    description: '获取当前材质渲染选项',
+    type: 'function',
+    group: '材质'
+  })
+  public getMaterialOptions(): MaterialEditOptions {
+    if (!this.material) {
+      return {};
+    }
+
+    const options: MaterialEditOptions = {};
+    const material = this.material;
+    
+    // 收集通用属性
+    if ('wireframe' in material) {
+      options.wireframe = (material as THREE.MeshBasicMaterial).wireframe;
+    }
+    
+    if ('flatShading' in material) {
+      options.flatShading = (material as THREE.MeshStandardMaterial).flatShading;
+    }
+    
+    if ('vertexColors' in material) {
+      options.vertexColors = (material as THREE.MeshStandardMaterial).vertexColors;
+    }
+    
+    options.transparency = material.transparent ? 1 - material.opacity : 0;
+    
+    if ('color' in material) {
+      options.color = (material as THREE.MeshStandardMaterial).color.getHex();
+    }
+    
+    if ('metalness' in material) {
+      options.metalness = (material as THREE.MeshStandardMaterial).metalness;
+    }
+    
+    if ('roughness' in material) {
+      options.roughness = (material as THREE.MeshStandardMaterial).roughness;
+    }
+    
+    if ('emissive' in material) {
+      options.emissive = (material as THREE.MeshStandardMaterial).emissive.getHex();
+    }
+    
+    if ('emissiveIntensity' in material) {
+      options.emissiveIntensity = (material as THREE.MeshStandardMaterial).emissiveIntensity;
+    }
+    
+    return options;
+  }
+
+  /**
+   * 设置线框模式
+   * @param enabled 是否启用线框模式
+   */
+  @editable({
+    displayName: '线框模式',
+    description: '设置是否显示为线框模式',
+    type: 'boolean',
+    group: '材质'
+  })
+  public setWireframe(enabled: boolean): void {
+    if (!this.material || !('wireframe' in this.material)) return;
+    
+    (this.material as THREE.MeshBasicMaterial).wireframe = enabled;
+    this.material.needsUpdate = true;
+  }
+  
+  /**
+   * 设置平面着色
+   * @param enabled 是否启用平面着色
+   */
+  @editable({
+    displayName: '平面着色',
+    description: '设置是否使用平面着色（不平滑）',
+    type: 'boolean',
+    group: '材质'
+  })
+  public setFlatShading(enabled: boolean): void {
+    if (!this.material || !('flatShading' in this.material)) return;
+    
+    (this.material as THREE.MeshStandardMaterial).flatShading = enabled;
+    this.material.needsUpdate = true;
+  }
+  
+  /**
+   * 设置材质颜色
+   * @param color 颜色（十六进制）
+   */
+  @editable({
+    displayName: '材质颜色',
+    description: '设置材质的基础颜色',
+    type: 'color',
+    group: '材质'
+  })
+  public setColor(color: number): void {
+    if (!this.material || !('color' in this.material)) return;
+    
+    (this.material as THREE.MeshStandardMaterial).color.setHex(color);
+  }
+  
+  /**
+   * 设置透明度
+   * @param transparency 透明度值（0-1）
+   */
+  @editable({
+    displayName: '透明度',
+    description: '设置材质的透明度（0=不透明，1=完全透明）',
+    type: 'slider',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    group: '材质'
+  })
+  public setTransparencyValue(transparency: number): void {
+    if (!this.material) return;
+    
+    this.material.transparent = transparency > 0;
+    this.material.opacity = 1 - transparency;
   }
 } 

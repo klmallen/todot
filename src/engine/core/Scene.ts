@@ -3,6 +3,7 @@ import { Node3d } from './Node3d';
 import { EventEmitter } from '../utils/EventEmitter';
 import { Alert } from '@mui/material';
 import { Camera } from './Camera';
+import { getIsSceneChanged, setIsSceneChanged } from '../states/useEditorMode';
 
 /**
  * 场景类 - 管理节点树，提供节点管理和更新功能
@@ -51,7 +52,7 @@ export class Scene {
   /**
    * 获取场景的THREE对象
    */
-  getThreeObject(): THREE.Scene {
+  getThreeScene(): THREE.Scene {
     return this.threeScene;
   }
 
@@ -87,6 +88,9 @@ export class Scene {
     if (this.active) {
       node.onEnterScene();
     }
+
+    //触发场景更新
+    setIsSceneChanged(getIsSceneChanged() + 1)
   }
 
   /**
@@ -114,6 +118,8 @@ export class Scene {
     if (node.getThreeObject()) {
       this.threeScene.remove(node.getThreeObject()!);
     }
+
+    setIsSceneChanged(getIsSceneChanged() + 1)
   }
 
   /**
@@ -132,14 +138,66 @@ export class Scene {
   }
 
   /**
+   * 根据节点名称获取节点
+   * @param name 节点名称
+   */
+  getNodesByName(name: string): Node3d[] {
+    return this.nodesList.filter(node => node.getName() === name);
+  }
+
+  /**
+   * 根据节点类型获取节点
+   * @param type 节点类型
+   */
+  getNodesByType<T extends Node3d>(type: new (...args: any[]) => T): T[] {
+    return this.nodesList.filter(node => node instanceof type) as T[];
+  }
+
+  /**
    * 更新场景及其所有节点
    * @param deltaTime 时间间隔（秒）
+   * @param skipScripts 是否跳过脚本更新
    */
-  update(deltaTime: number): void {
+  update(deltaTime: number, skipScripts: boolean = false): void {
     if (!this.active) return;
     
     // 从根节点开始递归更新
-    this.rootNode.update(deltaTime);
+    this.rootNode.update(deltaTime, skipScripts);
+  }
+
+  /**
+   * 启动场景中的所有脚本
+   */
+  startScripts(): void {
+    if (!this.active) return;
+    
+    // 遍历所有节点，触发脚本的onStart方法
+    this.nodesList.forEach(node => {
+      // 获取节点上的所有脚本
+      const scripts = node.getScripts();
+      scripts.forEach(script => {
+        if (script.isEnabled()) {
+          script.onStart();
+        }
+      });
+    });
+  }
+
+  /**
+   * 停止场景中的所有脚本
+   */
+  stopScripts(): void {
+    if (!this.active) return;
+    
+    // 遍历所有节点，可以添加自定义的停止逻辑
+    // 这里不直接调用脚本的onDestroy，因为那通常是用于完全销毁脚本
+    // 而这里只是暂时停止执行
+    this.nodesList.forEach(node => {
+      // 获取节点上的所有脚本
+      const scripts = node.getScripts();
+      // 这里可以添加自定义的停止逻辑
+      // 例如触发一个自定义的onPause方法等
+    });
   }
 
   /**
@@ -159,6 +217,7 @@ export class Scene {
     
     // 触发所有节点的进入场景生命周期事件
     this.rootNode.onEnterScene();
+    setIsSceneChanged(getIsSceneChanged() + 1)
   }
 
   /**
@@ -257,7 +316,8 @@ export class Scene {
     return {
       name: this.name,
       active: this.active,
-      rootNode: this.rootNode.toJSON()
+      rootNode: this.rootNode.toJSON(),
+      
     };
   }
 
@@ -302,5 +362,31 @@ export class Scene {
     
     // 清理根节点
     this.rootNode.dispose();
+  }
+
+  /**
+   * 在场景中查找符合条件的节点
+   * @param predicate 节点筛选条件
+   * @returns 符合条件的节点数组
+   */
+  findNodes(predicate: (node: Node3d) => boolean): Node3d[] {
+    const result: Node3d[] = [];
+    const searchNodes = (node: Node3d) => {
+      if (predicate(node)) {
+        result.push(node);
+      }
+      node.getChildren().forEach(child => {
+        if (child instanceof Node3d) {
+          searchNodes(child);
+        }
+      });
+    };
+    
+    // 从根节点开始搜索
+    if (this.rootNode) {
+      searchNodes(this.rootNode);
+    }
+    
+    return result;
   }
 }

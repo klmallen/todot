@@ -102,7 +102,7 @@
       height: 100%;
     }
 
-    .viewport-overlay {
+    /* .viewport-overlay {
       position: absolute;
       top: 0;
       left: 0;
@@ -111,7 +111,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-    }
+    } */
 
     .transform-gizmo-controls {
       display: flex;
@@ -184,25 +184,37 @@
       margin: 5px 0;
     }
   </style>
+  <!-- Example theme: Translucent -->
+<style>
+:root {
+  --tp-base-background-color: hsla(230, 20%, 11%, 1.00);
+  --tp-base-shadow-color: hsla(0, 0%, 0%, 0.2);
+  --tp-button-background-color: hsla(230, 10%, 80%, 1.00);
+  --tp-button-background-color-active: hsla(230, 10%, 95%, 1.00);
+  --tp-button-background-color-focus: hsla(230, 10%, 90%, 1.00);
+  --tp-button-background-color-hover: hsla(230, 10%, 85%, 1.00);
+  --tp-button-foreground-color: hsla(230, 20%, 11%, 1.00);
+  --tp-container-background-color: hsla(230, 25%, 16%, 1.00);
+  --tp-container-background-color-active: hsla(230, 25%, 31%, 1.00);
+  --tp-container-background-color-focus: hsla(230, 25%, 26%, 1.00);
+  --tp-container-background-color-hover: hsla(230, 25%, 21%, 1.00);
+  --tp-container-foreground-color: hsla(230, 10%, 80%, 1.00);
+  --tp-groove-foreground-color: hsla(230, 20%, 8%, 1.00);
+  --tp-input-background-color: hsla(230, 20%, 8%, 1.00);
+  --tp-input-background-color-active: hsla(230, 28%, 23%, 1.00);
+  --tp-input-background-color-focus: hsla(230, 28%, 18%, 1.00);
+  --tp-input-background-color-hover: hsla(230, 20%, 13%, 1.00);
+  --tp-input-foreground-color: hsla(230, 10%, 80%, 1.00);
+  --tp-label-foreground-color: hsla(230, 12%, 48%, 1.00);
+  --tp-monitor-background-color: hsla(230, 20%, 8%, 1.00);
+  --tp-monitor-foreground-color: hsla(230, 12%, 48%, 1.00);
+}
+</style>
+  </style>
 </head>
 <body>
-  <!-- <div id="root">
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #1e1e1e; color: white;">
-      <h1 style="font-size: 2.5rem; margin-bottom: 2rem;">欢迎使用 3D 引擎</h1>
-      <p style="font-size: 1.2rem; margin-bottom: 2rem; max-width: 600px; text-align: center;">这是一个基于 Three.js 的 3D 引擎，支持粒子系统、物理模拟和输入交互等功能。</p>
-      <div style="display: flex; gap: 1rem;">
-        <a href="/examples.html" style="display: inline-block; background-color: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 1.2rem;">
-          查看示例浏览器
-        </a>
-        <a href="https://github.com/yourusername/your-engine-repo" style="display: inline-block; background-color: #333; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 1.2rem;">
-          GitHub 仓库
-        </a>
-      </div>
-    </div>
-  </div> -->
-
-
-
-  <script type="module" src="/src/engine/examples/permanent-sword-trail-example.ts"></script>
+  <div id="root"></div>
+  <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.4/dist/tweakpane.min.js"></script>
+  <script type="module" src="/src/testAnimation.ts"></script>
 </body>
 </html>

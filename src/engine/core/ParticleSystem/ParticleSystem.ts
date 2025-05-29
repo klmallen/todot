@@ -1082,6 +1082,95 @@ export class ParticleSystem extends Node3d {
     // 发送进度事件
     this._eventEmitter.emit(ParticleLifecycleEvent.PROGRESS, this.getProgress());
   }
+
+  /**
+   * 序列化为JSON
+   */
+  public override toJSON(): any {
+    const json = super.toJSON();
+    
+    // 只序列化基本设置
+    const settings = this.getSettings();
+    const particleSystemData = {
+      duration: this._duration,
+      loop: this._loop,
+      prewarm: this._prewarm,
+      playbackSpeed: this._playbackSpeed,
+      maxParticles: this._maxParticles,
+      playOnAwake: this._playOnAwake,
+      simulationSpace: this._simulationSpace,
+      useGravity: this._useGravity,
+      gravityModifier: this._gravityModifier,
+      autoDestroy: this._autoDestroy,
+      
+      // 序列化当前状态
+      isPlaying: this._isPlaying,
+      isPaused: this._isPaused,
+      currentTime: this._time,
+      
+      // 序列化基本设置
+      startLifetime: settings.startLifetime,
+      startSpeed: settings.startSpeed,
+      startSize: settings.startSize,
+      startRotation: settings.startRotation,
+      startColor: settings.startColor,
+      emission: settings.emission,
+      shape: settings.shape,
+      sizeOverLifetime: settings.sizeOverLifetime,
+      colorOverLifetime: settings.colorOverLifetime
+    };
+
+    json.particleSystemData = particleSystemData;
+    return json;
+  }
+
+  /**
+   * 从JSON恢复
+   */
+  public override fromJSON(json: any): void {
+    super.fromJSON(json);
+
+    if (json.particleSystemData) {
+      const data = json.particleSystemData;
+
+      // 恢复基本属性
+      this._duration = data.duration;
+      this._loop = data.loop;
+      this._prewarm = data.prewarm;
+      this._playbackSpeed = data.playbackSpeed;
+      this._maxParticles = data.maxParticles;
+      this._playOnAwake = data.playOnAwake;
+      this._simulationSpace = data.simulationSpace;
+      this._useGravity = data.useGravity;
+      this._gravityModifier = data.gravityModifier;
+      this._autoDestroy = data.autoDestroy;
+
+      // 恢复当前状态
+      this._isPlaying = data.isPlaying;
+      this._isPaused = data.isPaused;
+      this._time = data.currentTime;
+
+      // 恢复基本设置
+      const settings = this.getSettings();
+      settings.startLifetime = data.startLifetime;
+      settings.startSpeed = data.startSpeed;
+      settings.startSize = data.startSize;
+      settings.startRotation = data.startRotation;
+      settings.startColor = data.startColor;
+      settings.emission = data.emission;
+      settings.shape = data.shape;
+      settings.sizeOverLifetime = data.sizeOverLifetime;
+      settings.colorOverLifetime = data.colorOverLifetime;
+
+      // 应用设置
+      this.setSettings(settings);
+
+      // 如果之前在播放，则恢复播放
+      if (this._isPlaying && !this._isPaused) {
+        this.play();
+      }
+    }
+  }
 }
 
 

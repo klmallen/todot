@@ -1,0 +1,168 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2025-05-14T15:58:25.161Z",
+  "scenes": {
+    "主场景": {
+      "version": "1.0.0",
+      "timestamp": "2025-05-14T15:58:25.162Z",
+      "engine": "VFX-Editor",
+      "scene": {
+        "name": "主场景",
+        "active": true,
+        "rootNode": {
+          "id": "5e870cf2-3a8b-4268-8fe7-714994991ea7",
+          "name": "根节点",
+          "type": "Node3d",
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          },
+          "visible": true,
+          "tags": [],
+          "children": [
+            {
+              "id": "2685a93a-5e7e-47e1-bf76-dae40d609169",
+              "name": "地板",
+              "type": "MeshInstance3D",
+              "position": {
+                "x": 0,
+                "y": -1,
+                "z": 0
+              },
+              "rotation": {
+                "x": -1.5707963267948966,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [
+                "mesh",
+                "renderable"
+              ],
+              "children": [],
+              "scripts": [],
+              "geometry": {
+                "type": "PlaneGeometry"
+              },
+              "material": {
+                "type": "MeshStandardMaterial",
+                "color": 8421504,
+                "transparent": false,
+                "opacity": 1
+              },
+              "instancing": {
+                "enabled": false,
+                "count": 1
+              }
+            },
+            {
+              "id": "825940ca-6ec4-4170-9ed8-1a014100751a",
+              "name": "玩家",
+              "type": "Node3d",
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "visible": true,
+              "tags": [],
+              "children": [
+                {
+                  "id": "5a0c5841-7574-425b-b2aa-c69852e08ce0",
+                  "name": "玩家模型",
+                  "type": "ModelLoader3D",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 0.01,
+                    "y": 0.01,
+                    "z": 0.01
+                  },
+                  "visible": true,
+                  "tags": [
+                    "model",
+                    "renderable"
+                  ],
+                  "children": [],
+                  "scripts": [],
+                  "modelPath": "../public/models/toy_terror_chogath.glb"
+                },
+                {
+                  "id": "aa0be004-7f84-401e-869a-6ba8b5c741c9",
+                  "name": "玩家动画",
+                  "type": "Node3d",
+                  "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                  },
+                  "scale": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                  },
+                  "visible": true,
+                  "tags": [],
+                  "children": [],
+                  "scripts": []
+                }
+              ],
+              "scripts": [
+                {
+                  "type": "PlayerController",
+                  "path": "/src/scriptDemo/PlayerController.tsPlayerController",
+                  "id": "df72dac1-217f-47ec-8f8e-16078b6057df",
+                  "enabled": true,
+                  "properties": {}
+                }
+              ]
+            }
+          ],
+          "scripts": []
+        }
+      }
+    }
+  },
+  "activeScenes": [
+    "主场景"
+  ]
+}
