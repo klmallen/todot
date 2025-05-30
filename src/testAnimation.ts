@@ -2,7 +2,7 @@
  * @Author: lvyang 13386341673@163.com
  * @Date: 2025-04-10 17:37:42
  * @LastEditors: lvyang 13386341673@163.com
- * @LastEditTime: 2025-05-22 20:30:30
+ * @LastEditTime: 2025-05-30 16:29:04
  * @FilePath: \todot\src\testAnimation.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -19,10 +19,11 @@ import PlayerController  from './scriptDemo/PlayerController';
 import { SceneNode } from './engine/core/UINode/SceneNode';
 import { PropertiesNode } from './engine/core/UINode/PropertiesNode';
 import { CameraFollowMode } from './engine/core/CameraNode3D';
-
+import { SceneSwitcherNode } from './engine/core/UINode/SceneSwitcherNode'; 
 // 创建UI节点
 const sceneTreeNode = new SceneNode();
 const propertiesNode = new PropertiesNode();
+const sceneSwitcherNode = new SceneSwitcherNode();  
 
 // 创建引擎
 const engine = await new Engine().init({
@@ -36,7 +37,7 @@ const engine = await new Engine().init({
 // 初始化UI节点
 sceneTreeNode.initialize();
 propertiesNode.initialize();
-
+sceneSwitcherNode.initialize();
 async function loadScene(){
   // 创建主场景
 const mainScene = new Scene("主场景");

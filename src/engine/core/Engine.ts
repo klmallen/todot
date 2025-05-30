@@ -31,12 +31,11 @@ import { CameraNode3D } from "./CameraNode3D";
 export default class Engine extends EventLoopItem implements IEngine {
   private static instance: Engine | null = null;
   private isInitialized: boolean = false;  // 添加初始化完成标志
-
+  private allscenes: Map<string, Scene> = new Map(); // 场景管理器
   private clock: Clock;
   private renderer: THREE.WebGLRenderer | WebGPURenderer | IRenderer;
   private physics: IPhysics | null;
   private threeScene: THREE.Scene; // 引擎唯一的THREE场景
-  private scenes: Map<string, Scene> = new Map(); // 场景管理器
   private camera: Camera;  // 当前活动相机
   private editorCamera: Camera | null = null;  // 编辑器相机
   private gameCamera: Camera | null = null;    // 游戏相机
@@ -380,8 +379,10 @@ export default class Engine extends EventLoopItem implements IEngine {
     // 更新所有场景，但只有激活的场景会实际更新其节点
     // 如果在编辑模式且非播放状态，则传递skipScripts=true
     const skipScripts = this.editorMode && !isPlaying;
-    this.scenes.forEach((scene) => {
-      scene.update(deltaTime, skipScripts);
+    this._activeScenes.forEach((scene) => {
+
+      console.log(scene, "scene");
+      // scene.update(deltaTime, skipScripts);
     });
     // 使用渲染器进行渲染
     if(this.camera instanceof Camera){
@@ -482,6 +483,22 @@ export default class Engine extends EventLoopItem implements IEngine {
 
     // 如果没有特殊情况，使用传入的相机
     this.camera = camera;
+  }
+  public get scenes (){
+    return this.allscenes;
+  }
+
+  public set scenes (value: Map<string, Scene>) {
+    this.allscenes = value;
+    
+  }
+
+  public get _activeScenes (){
+    return this.activeScenes;
+  }
+
+  public set _activeScenes (value: Set<string>) {
+    this.activeScenes = value;
   }
 
   public getCamera(): Camera {
@@ -668,7 +685,7 @@ export default class Engine extends EventLoopItem implements IEngine {
   }
 
   // 添加场景到引擎并处理生命周期
-  public addScene(scene: Scene): void {
+  public addScene(scene: Scene, isActive: boolean = false): void {
     const sceneName = scene.getName();
 
     // 如果场景已存在，先尝试移除
@@ -691,6 +708,9 @@ export default class Engine extends EventLoopItem implements IEngine {
     // 添加新场景
     this.scenes.set(sceneName, scene);
 
+    if (isActive) {
+      this._activeScenes.add(sceneName);
+    }
     // 确保根节点的 onReady 被调用
     const rootNode = scene.getRootNode();
     rootNode.onReady();

@@ -1,7 +1,9 @@
 {
+  "type": "module",
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@lincode/promiselikes": "^1.0.25",
     "@lincode/reactivity": "^1.0.89",
     "@mui/icons-material": "^7.0.1",
     "@mui/material": "^6.4.9",
@@ -33,7 +35,7 @@
     "vite": "^6.2.1"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview"
   },
