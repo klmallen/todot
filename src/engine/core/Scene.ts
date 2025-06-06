@@ -51,8 +51,16 @@ export class Scene {
 
   /**
    * 获取场景的THREE对象
+   * 用于添加到编辑器或游戏场景中
    */
-  getThreeScene(): THREE.Scene {
+  public getThreeObject(): THREE.Object3D {
+    return this.threeScene;
+  }
+
+  /**
+   * 获取场景的THREE场景对象
+   */
+  public getThreeScene(): THREE.Scene {
     return this.threeScene;
   }
 

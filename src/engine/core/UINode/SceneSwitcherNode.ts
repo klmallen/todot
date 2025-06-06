@@ -1,84 +1,59 @@
 import { BaseUINode } from './BaseUINode';
-import { Scene } from '../Scene';
 import Engine from '../Engine';
-// import { 
-//   getScenes,
-//   getSceneAdded,
-//   getSceneRemoved,
-//   getSceneActivated,
-//   activateScene,
-//   IScene
-// } from '../../states/scenesState';
+import { Scene } from '../Scene';
+import { getIsSceneChanged, setIsSceneChanged, setSceneSwitcherNode } from '../../states/useEditorMode';
 
-interface SceneItemData {
-  id: string;
+interface SceneTab {
   name: string;
+  element: HTMLElement;
   isActive: boolean;
 }
 
 /**
- * 场景切换节点类
+ * 场景切换器节点类 - 以Tabs形式展示和切换场景
  */
 export class SceneSwitcherNode extends BaseUINode {
-  private sceneListContainer: HTMLElement | null = null;
-  private scenes: SceneItemData[] = [];
+  private tabsContainer: HTMLElement | null = null;
+  private sceneTabs: Map<string, SceneTab> = new Map();
+  private activeSceneName: string | null = null;
+  private closeButtons: Map<string, HTMLElement> = new Map();
 
   constructor() {
     super('场景切换器');
-    this.size = { width: 200, height: 300 };
-    this.position = { x: 10, y: 10 };
+    this.size = { width: 400, height: 'auto' as any };
+    this.position = { x: window.innerWidth - 450, y: window.innerHeight - 150 };
     
     // 扩展基础样式
     Object.assign(this.style, {
-      backgroundColor: 'hsla(230, 25%, 16%, 1.00)',
+      backgroundColor: 'hsla(210, 30%, 20%, 0.9)',
       color: '#fff',
       padding: '0',
+      borderRadius: '6px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     });
 
-   
+    // 将自身注册到状态系统
+    setSceneSwitcherNode(this);
+
+    // 监听场景变化
+    this.createEffect(() => {
+      // 使用计数器触发更新
+      const counter = getIsSceneChanged();
+      this.refreshSceneTabs();
+    }, [getIsSceneChanged]);
+    
+    // 监听窗口大小变化，调整位置
+    window.addEventListener('resize', this.onWindowResize.bind(this));
   }
 
   /**
-   * 设置场景事件监听
+   * 窗口大小变化时调整位置
    */
-  private setupSceneListeners(): void {
-    // 监听场景添加事件
-    this.createEffect(() => {
-      const addedScene = getSceneAdded();
-      if (addedScene) {
-        this.addSceneItem(addedScene);
-        this.updateSceneList();
-      }
-    }, [getSceneAdded]);
-
-    // 监听场景移除事件
-    this.createEffect(() => {
-      const removedScene = getSceneRemoved();
-      if (removedScene) {
-        this.removeSceneItem(removedScene.id);
-        this.updateSceneList();
-      }
-    }, [getSceneRemoved]);
-
-    // 监听场景激活事件
-    this.createEffect(() => {
-      const activatedScene = getSceneActivated();
-      if (activatedScene) {
-        this.updateSceneActiveState(activatedScene.id);
-        this.updateSceneList();
-      }
-    }, [getSceneActivated]);
-
-    // 监听场景列表变化
-    this.createEffect(() => {
-      const scenes = getScenes();
-      this.scenes = Array.from(scenes.values()).map(scene => ({
-        id: scene.id,
-        name: scene.name,
-        isActive: scene.isActive
-      }));
-      this.updateSceneList();
-    }, [getScenes]);
+  private onWindowResize(): void {
+    // 更新位置到右下角
+    this.position = { x: window.innerWidth - 450, y: window.innerHeight - 150 };
+    this.setPosition(this.position.x, this.position.y);
   }
 
   /**
@@ -87,133 +62,324 @@ export class SceneSwitcherNode extends BaseUINode {
   public override initialize(): void {
     super.initialize();
     
-    // 创建场景列表容器
-    this.sceneListContainer = document.createElement('div');
-    Object.assign(this.sceneListContainer.style, {
-      padding: '8px',
-      overflow: 'auto'
-    });
-
-    // 添加到内容容器
     const contentContainer = this.getContentContainer();
-    if (contentContainer) {
-      contentContainer.appendChild(this.sceneListContainer);
-    }
-
-    // 初始化场景列表
-    this.updateSceneList();
-     // 监听场景变化
-    //  this.setupSceneListeners();
-  }
-
-  /**
-   * 添加场景项
-   */
-  private addSceneItem(scene: IScene): void {
-    const sceneItem: SceneItemData = {
-      id: scene.id,
-      name: scene.name,
-      isActive: scene.isActive
-    };
-    this.scenes.push(sceneItem);
-  }
-
-  /**
-   * 移除场景项
-   */
-  private removeSceneItem(sceneId: string): void {
-    this.scenes = this.scenes.filter(scene => scene.id !== sceneId);
-  }
-
-  /**
-   * 更新场景激活状态
-   */
-  private updateSceneActiveState(activeSceneId: string): void {
-    this.scenes.forEach(scene => {
-      scene.isActive = scene.id === activeSceneId;
+    if (!contentContainer) return;
+    
+    // 创建标签容器
+    this.tabsContainer = document.createElement('div');
+    Object.assign(this.tabsContainer.style, {
+      display: 'flex',
+      flexWrap: 'wrap',
+      padding: '8px',
+      gap: '4px',
+      borderBottom: '1px solid hsla(210, 30%, 30%, 1)'
     });
+    
+    contentContainer.appendChild(this.tabsContainer);
+    
+    // 不再初始化所有场景标签
+    // 用户需要手动添加场景
+    
+    // 添加"创建新场景"按钮
+    this.addCreateSceneButton();
+  }
+
+  private addCreateSceneButton(): void {
+    const createButton = document.createElement('button');
+    createButton.textContent = '创建新场景';
+    createButton.className = 'create-scene-button';
+    Object.assign(createButton.style, {
+      padding: '8px 12px',
+      margin: '8px',
+      backgroundColor: 'hsla(210, 50%, 40%, 1)',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer'
+    });
+    
+    createButton.addEventListener('click', () => {
+      this.createEmptyScene();
+    });
+    
+    if (this.contentContainer) {
+      this.contentContainer.appendChild(createButton);
+    }
   }
 
   /**
-   * 创建场景项元素
+   * 刷新场景标签
    */
-  private createSceneItemElement(scene: SceneItemData): HTMLElement {
-    const item = document.createElement('div');
-    Object.assign(item.style, {
+  private refreshSceneTabs(): void {
+    // 获取引擎实例和所有场景
+    const engine = Engine.getInstance();
+    const scenes = engine.scenes;
+    
+    if (!scenes || scenes.size === 0) return;
+    
+    // 获取当前活动场景
+    const activeScene = engine.getActiveScene();
+    const activeSceneName = activeScene ? activeScene.getName() : null;
+    
+    // 检查是否有场景变化
+    let hasChanges = false;
+    
+    // 不再自动添加所有场景，而是只检查现有标签是否需要移除
+    // 检查是否有旧场景需要移除
+    const existingTabs = Array.from(this.sceneTabs.keys());
+    for (const tabName of existingTabs) {
+      if (!scenes.has(tabName)) {
+        this.removeSceneTab(tabName);
+        hasChanges = true;
+      }
+    }
+    
+    // 更新活动状态
+    if (activeSceneName !== this.activeSceneName) {
+      this.updateActiveTab(activeSceneName);
+      hasChanges = true;
+    }
+    
+    // 如果有变化，重新排列标签
+    if (hasChanges) {
+      this.renderTabs();
+    }
+  }
+
+  /**
+   * 添加场景标签
+   */
+  private addSceneTab(name: string, scene: Scene): void {
+    // 如果已存在，不重复添加
+    if (this.sceneTabs.has(name)) return;
+    
+    // 创建标签元素
+    const tabElement = document.createElement('div');
+    Object.assign(tabElement.style, {
+      backgroundColor: 'hsla(210, 30%, 30%, 1)',
+      color: 'white',
       padding: '8px 12px',
-      marginBottom: '4px',
-      backgroundColor: scene.isActive ? 'hsla(230, 25%, 26%, 1.00)' : 'hsla(230, 25%, 21%, 1.00)',
-      borderRadius: '4px',
+      borderRadius: '4px 4px 0 0',
       cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      gap: '8px',
       transition: 'background-color 0.2s'
     });
-
-    // 场景名称
+    
+    // 标签名称
     const nameSpan = document.createElement('span');
-    nameSpan.textContent = scene.name;
-    item.appendChild(nameSpan);
-
-    // 激活状态图标
-    const statusIcon = document.createElement('span');
-    statusIcon.textContent = scene.isActive ? '●' : '○';
-    statusIcon.style.color = scene.isActive ? '#4fc3f7' : '#666';
-    item.appendChild(statusIcon);
-
+    nameSpan.textContent = name;
+    tabElement.appendChild(nameSpan);
+    
+    // 关闭按钮
+    const closeButton = document.createElement('span');
+    closeButton.textContent = '×';
+    closeButton.title = '关闭';
+    Object.assign(closeButton.style, {
+      fontSize: '16px',
+      fontWeight: 'bold',
+      width: '16px',
+      height: '16px',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: '50%',
+      backgroundColor: 'hsla(210, 30%, 40%, 1)',
+      cursor: 'pointer'
+    });
+    
+    // 点击关闭按钮时，不切换场景，只关闭标签
+    closeButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.closeSceneTab(name);
+    });
+    
+    tabElement.appendChild(closeButton);
+    this.closeButtons.set(name, closeButton);
+    
+    // 点击标签时切换场景
+    tabElement.addEventListener('click', () => {
+      this.switchToScene(name);
+    });
+    
     // 鼠标悬停效果
-    item.addEventListener('mouseover', () => {
-      item.style.backgroundColor = 'hsla(230, 25%, 28%, 1.00)';
+    tabElement.addEventListener('mouseover', () => {
+      if (this.activeSceneName !== name) {
+        tabElement.style.backgroundColor = 'hsla(210, 30%, 35%, 1)';
+      }
     });
-
-    item.addEventListener('mouseout', () => {
-      item.style.backgroundColor = scene.isActive ? 
-        'hsla(230, 25%, 26%, 1.00)' : 
-        'hsla(230, 25%, 21%, 1.00)';
+    
+    tabElement.addEventListener('mouseout', () => {
+      if (this.activeSceneName !== name) {
+        tabElement.style.backgroundColor = 'hsla(210, 30%, 30%, 1)';
+      }
     });
-
-    // 点击事件
-    item.addEventListener('click', () => {
-      activateScene(scene.id);
+    
+    // 存储标签信息
+    this.sceneTabs.set(name, {
+      name,
+      element: tabElement,
+      isActive: false
     });
-
-    return item;
   }
 
   /**
-   * 更新场景列表
+   * 移除场景标签
    */
-  private updateSceneList(): void {
-    if (!this.sceneListContainer) return;
+  private removeSceneTab(name: string): void {
+    const tab = this.sceneTabs.get(name);
+    if (!tab) return;
+    
+    // 从DOM中移除
+    const tabElement = tab.element;
+    if (tabElement.parentElement) {
+      tabElement.parentElement.removeChild(tabElement);
+    }
+    
+    // 移除关闭按钮引用
+    this.closeButtons.delete(name);
+    
+    // 从集合中移除
+    this.sceneTabs.delete(name);
+  }
 
-    // 清空当前列表
-    this.sceneListContainer.innerHTML = '';
+  /**
+   * 关闭场景标签
+   * 注意：这里只是关闭标签，不影响场景本身
+   */
+  private closeSceneTab(name: string): void {
+    this.removeSceneTab(name);
+    this.renderTabs();
+    
+    // 如果删除的是当前活动场景，切换到第一个可用场景
+    if (name === this.activeSceneName && this.sceneTabs.size > 0) {
+      const firstSceneName = Array.from(this.sceneTabs.keys())[0];
+      if (firstSceneName) {
+        this.switchToScene(firstSceneName);
+      }
+    }
+  }
 
-    // 如果没有场景，显示提示信息
-    if (this.scenes.length === 0) {
-      const emptyMessage = document.createElement('div');
-      Object.assign(emptyMessage.style, {
-        padding: '16px',
-        textAlign: 'center',
-        color: '#666'
-      });
-      emptyMessage.textContent = '暂无场景';
-      this.sceneListContainer.appendChild(emptyMessage);
+  /**
+   * 创建空场景
+   */
+  private createEmptyScene(): void {
+    const engine = Engine.getInstance();
+    
+    // 生成唯一的场景名称
+    const timestamp = new Date().getTime();
+    const emptySceneName = `新场景_${timestamp}`;
+    
+    // 创建新场景
+    const emptyScene = new Scene(emptySceneName);
+    
+    // 添加场景到引擎
+    engine.addScene(emptyScene, true);
+    
+    // 添加场景到标签
+    this.addSceneTab(emptySceneName, emptyScene);
+    this.renderTabs();
+    
+    // 激活新场景
+    this.switchToScene(emptySceneName);
+    
+    // 触发场景变化事件
+    setIsSceneChanged(Date.now());
+  }
+
+  /**
+   * 切换到指定场景
+   */
+  private switchToScene(name: string): void {
+    // 如果点击的是当前活动场景，不做任何操作
+    if (name === this.activeSceneName) return;
+    
+    const engine = Engine.getInstance();
+    
+    // 调用引擎的场景切换方法
+    if (engine.isEditorMode()) {
+      engine.switchEditorScene(name);
+    } else {
+      // 在非编辑器模式下，先停用所有场景，再激活指定场景
+      engine.activateScene(name, true);
+    }
+    
+    // 更新UI
+    this.updateActiveTab(name);
+  }
+
+  /**
+   * 更新活动标签
+   */
+  private updateActiveTab(name: string | null): void {
+    // 先重置所有标签样式
+    this.sceneTabs.forEach((tab) => {
+      tab.isActive = false;
+      tab.element.style.backgroundColor = 'hsla(210, 30%, 30%, 1)';
+      tab.element.style.fontWeight = 'normal';
+    });
+    
+    // 设置新的活动标签
+    if (name && this.sceneTabs.has(name)) {
+      const activeTab = this.sceneTabs.get(name)!;
+      activeTab.isActive = true;
+      activeTab.element.style.backgroundColor = 'hsla(210, 50%, 40%, 1)';
+      activeTab.element.style.fontWeight = 'bold';
+    }
+    
+    this.activeSceneName = name;
+  }
+
+  /**
+   * 渲染所有标签
+   */
+  private renderTabs(): void {
+    if (!this.tabsContainer) return;
+    
+    // 清空容器
+    this.tabsContainer.innerHTML = '';
+    
+    // 按名称排序标签
+    const sortedTabs = Array.from(this.sceneTabs.values())
+      .sort((a, b) => a.name.localeCompare(b.name));
+    
+    // 添加标签到容器
+    for (const tab of sortedTabs) {
+      this.tabsContainer.appendChild(tab.element);
+    }
+  }
+
+  /**
+   * 添加场景标签
+   * 供外部调用的公共方法
+   */
+  public addScene(scene: Scene): void {
+    const name = scene.getName();
+    
+    // 如果标签已存在，仅激活它
+    if (this.sceneTabs.has(name)) {
+      this.switchToScene(name);
       return;
     }
-
-    // 渲染场景列表
-    this.scenes.forEach(scene => {
-      const sceneElement = this.createSceneItemElement(scene);
-      this.sceneListContainer?.appendChild(sceneElement);
-    });
+    
+    // 添加新标签
+    this.addSceneTab(name, scene);
+    this.renderTabs();
+    
+    // 激活新标签
+    this.switchToScene(name);
   }
 
   /**
    * 清理资源
    */
   public override dispose(): void {
+    // 从状态系统中移除自身
+    setSceneSwitcherNode(null);
+    
+    this.sceneTabs.clear();
+    this.closeButtons.clear();
     super.destroy();
   }
 } 

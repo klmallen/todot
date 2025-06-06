@@ -18,6 +18,7 @@ import {
   getSelectedObject,
   setSelectedObject,
   setIsDragging,
+  setSelectedNode,
 } from "../states/useEditorMode";
 import { ObjectSelector } from "../input/ObjectSelector";
 import { createEditorUI } from "../ui/index";
@@ -27,6 +28,7 @@ import SceneTreePanel from '../ui/SceneTreePanel';
 import { IEngine } from "./interfaces"; // 导入接口
 import { WebGPURenderer } from 'three/webgpu';
 import { CameraNode3D } from "./CameraNode3D";
+import { NodeCreatorUI } from './UINode/NodeCreatorUI';
 
 export default class Engine extends EventLoopItem implements IEngine {
   private static instance: Engine | null = null;
@@ -36,6 +38,12 @@ export default class Engine extends EventLoopItem implements IEngine {
   private renderer: THREE.WebGLRenderer | WebGPURenderer | IRenderer;
   private physics: IPhysics | null;
   private threeScene: THREE.Scene; // 引擎唯一的THREE场景
+  // 编辑器专用场景 - 包含辅助工具和编辑器UI元素
+  private editorScene: THREE.Scene;
+  // 游戏专用场景 - 仅包含游戏相关元素
+  private gameScene: THREE.Scene;
+  // 当前活动场景 - 根据模式切换
+  private activeThreeScene: THREE.Scene;
   private camera: Camera;  // 当前活动相机
   private editorCamera: Camera | null = null;  // 编辑器相机
   private gameCamera: Camera | null = null;    // 游戏相机
@@ -60,6 +68,9 @@ export default class Engine extends EventLoopItem implements IEngine {
   private sceneTreePanel: SceneTreePanel | null = null;
   private sceneTreeContainer: HTMLElement | null = null;
 
+  // 新增属性
+  private nodeCreatorUI: NodeCreatorUI | null = null;
+
   constructor(canvas?: HTMLCanvasElement, physics: IPhysics | null = null) {
     super();
     // 确保单例实现
@@ -71,7 +82,14 @@ export default class Engine extends EventLoopItem implements IEngine {
     this.clock = new Clock();
     console.log(canvas, "canvas");
     this.canvas = canvas || document.createElement("canvas");
+    
+    // 初始化三个场景
     this.threeScene = new THREE.Scene();
+    this.editorScene = new THREE.Scene();
+    this.gameScene = new THREE.Scene();
+    
+    // 默认使用主场景作为活动场景
+    this.activeThreeScene = this.threeScene;
 
     this.physics = physics;
     
@@ -380,15 +398,18 @@ export default class Engine extends EventLoopItem implements IEngine {
     // 如果在编辑模式且非播放状态，则传递skipScripts=true
     const skipScripts = this.editorMode && !isPlaying;
     this._activeScenes.forEach((scene) => {
-
       console.log(scene, "scene");
       // scene.update(deltaTime, skipScripts);
     });
+
+    // 根据当前模式选择要渲染的场景
+    const renderScene = this.editorMode ? this.editorScene : this.gameScene;
+    
     // 使用渲染器进行渲染
     if(this.camera instanceof Camera){
-      this.renderer.render(this.threeScene, this.camera.getThreeCamera());
+      this.renderer.render(renderScene, this.camera.getThreeCamera());
     }else{
-      this.renderer.render(this.threeScene, this.camera);
+      this.renderer.render(renderScene, this.camera);
     }
 
     // 更新包围盒辅助器
@@ -590,32 +611,35 @@ export default class Engine extends EventLoopItem implements IEngine {
 
   // 设置默认灯光
   private setupDefaultLights(): void {
-    // 使用更亮的环境光
+    // 创建灯光
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    this.threeScene.add(ambientLight);
-
-    // 添加半球光 - 提供更自然的环境光照
     const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
-    this.threeScene.add(hemisphereLight);
-
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(10, 10, 10);
     directionalLight.castShadow = true;
-    // 优化阴影设置
     directionalLight.shadow.mapSize.width = 2048;
     directionalLight.shadow.mapSize.height = 2048;
-    this.threeScene.add(directionalLight);
+    
+    // 添加到编辑器场景
+    this.editorScene.add(ambientLight.clone());
+    this.editorScene.add(hemisphereLight.clone());
+    this.editorScene.add(directionalLight.clone());
+    
+    // 添加到游戏场景
+    this.gameScene.add(ambientLight);
+    this.gameScene.add(hemisphereLight);
+    this.gameScene.add(directionalLight);
   }
 
   // 设置辅助工具
   private setupHelpers(): void {
     // 添加网格辅助线
     const gridHelper = new THREE.GridHelper(100, 100);
-    this.threeScene.add(gridHelper);
+    this.editorScene.add(gridHelper);
 
     // 添加坐标轴辅助线
     const axesHelper = new THREE.AxesHelper(5);
-    this.threeScene.add(axesHelper);
+    this.editorScene.add(axesHelper);
   }
 
   // 添加UI组件，确保事件处理正确
@@ -732,19 +756,38 @@ export default class Engine extends EventLoopItem implements IEngine {
           if (sceneName !== name && otherScene.isActive()) {
             otherScene.deactivate();
             this.activeScenes.delete(sceneName);
-            this.threeScene.remove(otherScene.getThreeObject());
+            
+            // 从当前活动的THREE场景中移除
+            const threeObject = otherScene.getThreeObject();
+            if (threeObject) {
+              if (this.editorMode) {
+                this.editorScene.remove(threeObject);
+              } else {
+                this.gameScene.remove(threeObject);
+              }
+            }
           }
         });
       }
 
       scene.activate();
       this.activeScenes.add(name);
-      this.threeScene.add(scene.threeScene);
+      
+      // 根据当前模式添加到相应的THREE场景
+      const threeObject = scene.getThreeObject();
+      if (threeObject) {
+        if (this.editorMode) {
+          this.editorScene.add(threeObject);
+        } else {
+          this.gameScene.add(threeObject);
+        }
+      }
+      
       console.log(scene, " 引擎 - scene.getThreeScene()");
       // 初始化后处理
-      if (this.camera && scene.threeScene) {
+      if (this.camera && scene.getThreeScene()) {
         this.postProcessingManager.init(
-          scene.threeScene,
+          scene.getThreeScene(),
           this.camera.getThreeCamera()
         );
       }
@@ -760,7 +803,16 @@ export default class Engine extends EventLoopItem implements IEngine {
     if (scene) {
       scene.deactivate();
       this.activeScenes.delete(name);
-      this.threeScene.remove(scene.getThreeObject());
+      
+      // 从当前活动的THREE场景中移除
+      const threeObject = scene.getThreeObject();
+      if (threeObject) {
+        if (this.editorMode) {
+          this.editorScene.remove(threeObject);
+        } else {
+          this.gameScene.remove(threeObject);
+        }
+      }
     }
   }
 
@@ -1445,55 +1497,39 @@ export default class Engine extends EventLoopItem implements IEngine {
       this.initOrbitControls();
     }
 
-    // 检查必要的组件是否已初始化
-    if (!this.camera) {
-      console.error("无法初始化编辑器模式：缺少相机");
-      return;
-    }
+    // 将当前激活的场景从游戏场景移动到编辑器场景
+    this.activeScenes.forEach((sceneName) => {
+      const scene = this.scenes.get(sceneName);
+      if (scene) {
+        const threeObject = scene.getThreeObject();
+        if (threeObject) {
+          this.gameScene.remove(threeObject);
+          this.editorScene.add(threeObject);
+        }
+      }
+    });
 
-    if (!this.renderer) {
-      console.error("无法初始化编辑器模式：缺少渲染器");
-      return;
-    }
-
-    if (!this.threeScene) {
-      console.error("无法初始化编辑器模式：缺少场景");
-      return;
-    }
-
-    console.log("开始初始化编辑器模式...");
-
-    // 初始化物体选择器
-    try {
-      this.objectSelector = ObjectSelector.getInstance();
-      console.log("物体选择器初始化成功");
-    } catch (error) {
-      console.error("物体选择器初始化失败:", error);
-      return;
-    }
-
-    // 初始化变换控制器
-    try {
+    // 初始化变换控制器（仅在编辑器模式下可用）
+    if (!this.transformControls) {
       this.initTransformControls();
-      console.log("变换控制器初始化成功");
-    } catch (error) {
-      console.error("变换控制器初始化失败:", error);
-      return;
+    } else if (this.transformControls) {
+      // 如果已经存在，确保它是可见的
+      this.transformControls.visible = true;
     }
 
-    // // 添加选择对象监听
-    // getSelectedObject((obj) => {
-    //     console.log('选中对象变化:', obj);
-    //     if (this.transformControls && obj) {
-    //         this.transformControls.attach(obj);
-    //         console.log('变换控制器附加到对象:', obj);
-    //     } else if (this.transformControls) {
-    //         this.transformControls.detach();
-    //         console.log('变换控制器分离');
-    //     }
-    // });
+    // 启用辅助工具（网格和坐标轴）
+    this.editorScene.children.forEach(child => {
+      // 查找网格和坐标轴辅助工具
+      if (child instanceof THREE.GridHelper || child instanceof THREE.AxesHelper) {
+        child.visible = true;
+      }
+    });
 
-    console.log("编辑器模式已初始化");
+    // 初始化节点创建器UI
+    if (!this.nodeCreatorUI) {
+      this.nodeCreatorUI = new NodeCreatorUI(this);
+      this.nodeCreatorUI.initialize();
+    }
   }
 
   /**
@@ -1510,26 +1546,39 @@ export default class Engine extends EventLoopItem implements IEngine {
       this.camera = this.gameCamera;
     }
 
-    // 清理轨道控制器
-    if (this.orbitControls) {
-      this.orbitControls.dispose();
-      this.orbitControls = null;
-    }
+    // 将当前激活的场景从编辑器场景移动到游戏场景
+    this.activeScenes.forEach((sceneName) => {
+      const scene = this.scenes.get(sceneName);
+      if (scene) {
+        const threeObject = scene.getThreeObject();
+        if (threeObject) {
+          this.editorScene.remove(threeObject);
+          this.gameScene.add(threeObject);
+        }
+      }
+    });
 
-    // 停止播放状态
-    this.stopScripts();
-
-    // 清理变换控制器
+    // 禁用变换控制器（在游戏模式下不可用）
     if (this.transformControls) {
-      this.transformControls.detach();
-      this.threeScene.remove(this.transformControls);
-      this.transformControls = null;
+      this.transformControls.visible = false;
+      if (this.transformControls.object) {
+        this.transformControls.detach();
+      }
     }
 
-    // 清理选中对象
-    setSelectedObject(null);
+    // 禁用辅助工具（网格和坐标轴）
+    this.editorScene.children.forEach(child => {
+      // 查找网格和坐标轴辅助工具
+      if (child instanceof THREE.GridHelper || child instanceof THREE.AxesHelper) {
+        child.visible = false;
+      }
+    });
 
-    console.log("已退出编辑器模式");
+    // 清理节点创建器UI
+    if (this.nodeCreatorUI) {
+      this.nodeCreatorUI.destroy();
+      this.nodeCreatorUI = null
+    }
   }
 
   /**
@@ -1547,7 +1596,7 @@ export default class Engine extends EventLoopItem implements IEngine {
     console.log("初始化变换控制器参数:", {
       camera: threeCamera,
       domElement: domElement,
-      scene: this.threeScene,
+      scene: this.activeThreeScene,
     });
 
     if (!threeCamera) {
@@ -1581,11 +1630,11 @@ export default class Engine extends EventLoopItem implements IEngine {
     this.transformControls.setMode("translate");
 
     // 添加到场景
-    this.threeScene.add(this.transformControls.getHelper());
+    this.editorScene.add(this.transformControls.getHelper());
     console.log("变换控制器已添加到场景:", {
       controls: this.transformControls,
-      scene: this.threeScene,
-      sceneChildren: this.threeScene.children,
+      scene: this.editorScene,
+      sceneChildren: this.editorScene.children,
     });
 
     // 在拖动时禁用轨道控制器
@@ -2034,5 +2083,63 @@ export default class Engine extends EventLoopItem implements IEngine {
   // 添加获取游戏相机方法
   public getGameCamera(): Camera | null {
     return this.gameCamera;
+  }
+
+  /**
+   * 切换编辑器场景
+   * @param sceneName 场景名称
+   */
+  public switchEditorScene(sceneName: string): void {
+    if (!this.editorMode) {
+      console.warn('switchEditorScene只能在编辑器模式下使用');
+      return;
+    }
+
+    if (!this.scenes.has(sceneName)) {
+      console.error(`场景 ${sceneName} 不存在`);
+      return;
+    }
+
+    // 获取要切换到的场景
+    const targetScene = this.scenes.get(sceneName);
+
+    // 停用当前所有激活的场景（除了要切换到的场景）
+    for (const [name, scene] of this.scenes.entries()) {
+      if (scene.isActive && name !== sceneName) {
+        this.deactivateScene(name);
+      }
+    }
+
+    // 激活目标场景
+    this.activateScene(sceneName);
+    
+    // 重置变换控制器
+    if (this.transformControls) {
+      this.transformControls.detach();
+    }
+    
+    // 默认选择场景中的第一个节点（如果有）
+    const scene = this.scenes.get(sceneName);
+    if (scene && scene.nodes.size > 0) {
+      const firstNodeId = Array.from(scene.nodes.keys())[0];
+      const firstNode = scene.getNodeById(firstNodeId);
+      if (firstNode) {
+        // 如果有变换控制器，附加到第一个节点
+        if (this.transformControls && firstNode.object3D) {
+          this.transformControls.attach(firstNode.object3D);
+        }
+        
+        // 触发节点选择事件
+        this.eventBus.emit('node:selected', { nodeId: firstNodeId, node: firstNode });
+      }
+    } else { 
+      // 如果场景为空，触发清空选择事件
+      this.eventBus.emit('node:selected', { nodeId: null, node: null });
+    }
+  }
+
+  // 添加获取NodeCreatorUI的方法
+  public getNodeCreatorUI(): NodeCreatorUI | null {
+    return this.nodeCreatorUI;
   }
 }

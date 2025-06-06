@@ -1,10 +1,11 @@
 import { setSelectGameSceneNode } from '../state/useSelectedNode';
 import { BaseUINode } from './BaseUINode';
-import { getAllScenes, getIsSceneChanged, setAllScenes, setSelectedObject, setSelectedNode } from '../../states/useEditorMode';
+import { getAllScenes, getIsSceneChanged, getSceneSwitcherNode, setAllScenes, setSelectedObject, setSelectedNode } from '../../states/useEditorMode';
 import { Scene as ThreeScene, Object3D } from 'three';
 import Engine from '../Engine';
 import { Scene } from '../Scene';
 import { Node3d } from '../Node3d';
+import { SceneSwitcherNode } from './SceneSwitcherNode';
 
 interface TreeNodeData {
   name: string;
@@ -22,13 +23,15 @@ export class SceneNode extends BaseUINode {
   private treeData: TreeNodeData[];
   private treeContainer: HTMLElement | null;
   private sceneUpdateCallback: (() => void) | null = null;
+  private sceneSwitcher: SceneSwitcherNode | null = null;
 
-  constructor() {
+  constructor(sceneSwitcher?: SceneSwitcherNode) {
     super('SceneNode');
     this.size = { width: 250, height: 600 };
     this.position = { x: 10, y: 10 };
     this.treeData = []; // 初始化为空数组
     this.treeContainer = null;
+    this.sceneSwitcher = sceneSwitcher || null;
     
     // 扩展基础样式
     Object.assign(this.style, {
@@ -41,6 +44,21 @@ export class SceneNode extends BaseUINode {
 
     // 监听场景变化
     this.setupSceneListener();
+    
+    // 监听SceneSwitcherNode实例变化
+    this.createEffect(() => {
+      const switcher = getSceneSwitcherNode();
+      if (switcher) {
+        this.sceneSwitcher = switcher;
+      }
+    }, [getSceneSwitcherNode]);
+  }
+
+  /**
+   * 设置场景切换器
+   */
+  public setSceneSwitcher(switcher: SceneSwitcherNode): void {
+    this.sceneSwitcher = switcher;
   }
 
   /**
@@ -289,7 +307,39 @@ export class SceneNode extends BaseUINode {
       this.onNodeSelected(data);
     });
 
+    // 添加双击事件 - 如果是场景节点，则添加到场景切换器中
+    if (data.isScene) {
+      nodeHeader.addEventListener('dblclick', (e: MouseEvent) => {
+        e.stopPropagation();
+        
+        // 如果是场景节点，添加到场景切换器
+        if (data.isScene && data.data instanceof Scene) {
+          this.addToSceneSwitcher(data.data);
+        }
+      });
+    }
+
     return nodeContainer;
+  }
+
+  /**
+   * 添加场景到场景切换器
+   */
+  private addToSceneSwitcher(scene: Scene): void {
+    // 从状态中获取场景切换器实例
+    if (!this.sceneSwitcher) {
+      const switcher = getSceneSwitcherNode();
+      if (switcher) {
+        this.sceneSwitcher = switcher;
+      }
+    }
+    
+    // 如果找到了场景切换器，添加场景
+    if (this.sceneSwitcher) {
+      this.sceneSwitcher.addScene(scene);
+    } else {
+      console.warn('无法找到场景切换器，请先设置场景切换器');
+    }
   }
 
   /**
@@ -341,6 +391,9 @@ export class SceneNode extends BaseUINode {
       if (data.isScene) {
         const scene = data.data as Scene;
         Engine.getInstance().setActiveScene(scene);
+        
+        // 将场景添加到场景切换器
+        this.addToSceneSwitcher(scene);
       } else {
         // 如果是普通节点，设置为选中节点
         const node = data.data as Node3d;

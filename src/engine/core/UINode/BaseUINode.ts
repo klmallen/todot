@@ -309,12 +309,28 @@ export class BaseUINode extends EventLoopItem {
 
   /**
    * 设置位置
+   * 支持负数坐标：
+   * - 当x为负数时，表示相对于右侧的位置
+   * - 当y为负数时，表示相对于底部的位置
    */
   public setPosition(x: number, y: number): void {
     this.position = { x, y };
     if (this.element) {
-      this.element.style.left = `${x}px`;
-      this.element.style.top = `${y}px`;
+      if (x >= 0) {
+        this.element.style.left = `${x}px`;
+        this.element.style.right = 'auto';
+      } else {
+        this.element.style.right = `${Math.abs(x)}px`;
+        this.element.style.left = 'auto';
+      }
+      
+      if (y >= 0) {
+        this.element.style.top = `${y}px`;
+        this.element.style.bottom = 'auto';
+      } else {
+        this.element.style.bottom = `${Math.abs(y)}px`;
+        this.element.style.top = 'auto';
+      }
     }
   }
 

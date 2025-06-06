@@ -34,6 +34,9 @@ export const [setIsSceneChanged, getIsSceneChanged] = store<number>(0)
 //全部场景
 export const [setAllScenes, getAllScenes] = store<Scene[]>([])
 
+// 场景切换器节点实例
+export const [setSceneSwitcherNode, getSceneSwitcherNode] = store<any>(null)
+
 
 
 

@@ -20,10 +20,12 @@ import { SceneNode } from './engine/core/UINode/SceneNode';
 import { PropertiesNode } from './engine/core/UINode/PropertiesNode';
 import { CameraFollowMode } from './engine/core/CameraNode3D';
 import { SceneSwitcherNode } from './engine/core/UINode/SceneSwitcherNode'; 
+import { GameControlNode } from './engine/core/UINode/GameControlNode';
 // 创建UI节点
 const sceneTreeNode = new SceneNode();
 const propertiesNode = new PropertiesNode();
 const sceneSwitcherNode = new SceneSwitcherNode();  
+const gameControlNode = new GameControlNode();
 
 // 创建引擎
 const engine = await new Engine().init({
@@ -33,7 +35,7 @@ const engine = await new Engine().init({
   addDefaultLights: true,
   useWebGPU: false  // 禁用 WebGPU，使用 WebGL
 });
-
+gameControlNode.initialize();
 // 初始化UI节点
 sceneTreeNode.initialize();
 propertiesNode.initialize();
@@ -41,7 +43,11 @@ sceneSwitcherNode.initialize();
 async function loadScene(){
   // 创建主场景
 const mainScene = new Scene("主场景");
+const mainScene2 = new Scene("主场景2");
+const mainScene3 = new Scene("主场景3");
 engine.addScene(mainScene);
+engine.addScene(mainScene2);
+engine.addScene(mainScene3);
 
 // 添加环境光和方向光
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
