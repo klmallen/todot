@@ -59,24 +59,35 @@ gameControlNode.initialize();
 // 初始化UI节点
 sceneTreeNode.initialize();
 propertiesNode.initialize();
-sceneSwitcherNode.initialize();
-resourceListNode.initialize();
-uIPanelManager.initialize()
+engine.registerUINode(sceneTreeNode);
+engine.registerUINode(propertiesNode);
+engine.registerUINode(gameControlNode);
+// sceneSwitcherNode.initialize();
+// resourceListNode.initialize();
+// uIPanelManager.initialize()
 
-// uIPanelManager.addNode(sceneTreeNode)
-// uIPanelManager.addNode(propertiesNode)
-uIPanelManager.addNode(sceneSwitcherNode)
-uIPanelManager.addNode(resourceListNode)
-uIPanelManager.addNode(gameControlNode)
+// // uIPanelManager.addNode(sceneTreeNode)
+// // uIPanelManager.addNode(propertiesNode)
+// uIPanelManager.addNode(sceneSwitcherNode)
+// uIPanelManager.addNode(resourceListNode)
+// uIPanelManager.addNode(gameControlNode)
 async function loadScene(){
   // 创建主场景
 const mainScene = new Scene("主场景");
+
 const mainScene2 = new Scene("主场景2");
 const mainScene3 = new Scene("主场景3");
 engine.addScene(mainScene);
 engine.addScene(mainScene2);
 engine.addScene(mainScene3);
 
+mainScene.addSceneReference(mainScene2);
+const player2Node = new Node3d("玩家2");
+player2Node.addChild(new ModelLoader3D("玩家模型5", '../public/models/inkshadow_volibear.glb'));
+player2Node.setPosition(0,0,-4)
+player2Node.setScale(0.01,0.01,0.01)
+mainScene2.addNode(player2Node);
+engine.setGameSceneName(mainScene.getName());
 // 添加环境光和方向光
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 mainScene.add(ambientLight);

@@ -2,6 +2,9 @@ import { BaseUINode } from './BaseUINode';
 import Engine from '../Engine';
 import { Scene } from '../Scene';
 import { getIsSceneChanged, setIsSceneChanged, setSceneSwitcherNode } from '../../states/useEditorMode';
+import { Node3d } from '../Node3d';
+import { SceneRefNode } from './SceneNode';
+import { Vector3 } from 'three';
 
 interface SceneTab {
   name: string;
@@ -17,13 +20,22 @@ export class SceneSwitcherNode extends BaseUINode {
   private sceneTabs: Map<string, SceneTab> = new Map();
   private activeSceneName: string | null = null;
   private closeButtons: Map<string, HTMLElement> = new Map();
+  private scenes: Map<string, Scene> = new Map();
+  private activeScene: Scene | null = null;
+  private container: HTMLElement;
+  private contentContainer: HTMLElement;
 
   constructor() {
-    super('场景切换器');
-    this.size = { width: 400, height: 'auto' as any };
-    this.position = { x: window.innerWidth - 450, y: window.innerHeight - 150 };
+    super('SceneSwitcher');
     
-
+    // 初始化 DOM 元素
+    this.container = document.createElement('div');
+    this.tabsContainer = document.createElement('div');
+    this.contentContainer = document.createElement('div');
+    
+    this.setupUI();
+    this.setupPosition();
+    
     // 将自身注册到状态系统
     setSceneSwitcherNode(this);
 
@@ -36,6 +48,40 @@ export class SceneSwitcherNode extends BaseUINode {
     
     // 监听窗口大小变化，调整位置
     window.addEventListener('resize', this.onWindowResize.bind(this));
+  }
+
+  private setupPosition(): void {
+    // 设置节点位置
+    const position = new Vector3(
+      window.innerWidth - 450,
+      window.innerHeight - 150,
+      0
+    );
+    this.setPosition(position);
+  }
+
+  private setupUI(): void {
+    // 设置容器样式
+    this.container.style.width = '100%';
+    this.container.style.height = '100%';
+    this.container.style.display = 'flex';
+    this.container.style.flexDirection = 'column';
+    this.container.style.backgroundColor = 'var(--tp-container-background-color)';
+
+    // 设置标签页容器样式
+    this.tabsContainer.style.display = 'flex';
+    this.tabsContainer.style.padding = '4px';
+    this.tabsContainer.style.gap = '4px';
+    this.tabsContainer.style.borderBottom = '1px solid var(--tp-container-background-color-active)';
+
+    // 设置内容容器样式
+    this.contentContainer.style.flex = '1';
+    this.contentContainer.style.overflow = 'auto';
+    this.contentContainer.style.padding = '8px';
+
+    // 组装 DOM 结构
+    this.container.appendChild(this.tabsContainer);
+    this.container.appendChild(this.contentContainer);
   }
 
   /**
@@ -55,18 +101,6 @@ export class SceneSwitcherNode extends BaseUINode {
     
     const contentContainer = this.getContentContainer();
     if (!contentContainer) return;
-    
-    // 创建标签容器
-    this.tabsContainer = document.createElement('div');
-    Object.assign(this.tabsContainer.style, {
-      display: 'flex',
-      flexWrap: 'wrap',
-      padding: '8px',
-      gap: '4px',
-      borderBottom: '1px solid hsla(210, 30%, 30%, 1)'
-    });
-    
-    contentContainer.appendChild(this.tabsContainer);
     
     // 添加"创建新场景"按钮
     this.addCreateSceneButton();
@@ -404,5 +438,76 @@ export class SceneSwitcherNode extends BaseUINode {
     this.sceneTabs.clear();
     this.closeButtons.clear();
     super.destroy();
+  }
+
+  private createTab(scene: Scene): HTMLElement {
+    const tab = document.createElement('div');
+    tab.style.padding = '4px 8px';
+    tab.style.cursor = 'pointer';
+    tab.style.borderRadius = '4px';
+    tab.style.backgroundColor = 'var(--tp-container-background-color)';
+    tab.style.color = 'var(--tp-label-foreground-color)';
+    tab.style.userSelect = 'none';
+    tab.textContent = scene.getName();
+
+    // 检查是否是场景引用
+    const isSceneRef = Array.from(scene.getAllNodes().values()).some(node => node instanceof SceneRefNode);
+    if (isSceneRef) {
+      tab.style.fontStyle = 'italic';
+      tab.title = '包含场景引用';
+    }
+
+    tab.addEventListener('click', () => {
+      this.switchScene(scene.getName());
+    });
+
+    return tab;
+  }
+
+  private updateTabs(): void {
+    this.tabsContainer.innerHTML = '';
+    this.scenes.forEach(scene => {
+      const tab = this.createTab(scene);
+      if (scene === this.activeScene) {
+        tab.style.backgroundColor = 'var(--tp-container-background-color-active)';
+        tab.style.fontWeight = 'bold';
+      }
+      this.tabsContainer.appendChild(tab);
+    });
+  }
+
+  public registerScene(scene: Scene): void {
+    if (!this.scenes.has(scene.getName())) {
+      this.scenes.set(scene.getName(), scene);
+      this.updateTabs();
+    }
+  }
+
+  public unregisterScene(sceneName: string): void {
+    if (this.scenes.has(sceneName)) {
+      this.scenes.delete(sceneName);
+      this.updateTabs();
+    }
+  }
+
+  public switchScene(sceneName: string): void {
+    const scene = this.scenes.get(sceneName);
+    if (scene) {
+      // 检查是否是场景引用
+      const sceneRefNode = Array.from(scene.getAllNodes().values()).find(node => node instanceof SceneRefNode);
+      if (sceneRefNode instanceof SceneRefNode) {
+        // 如果是场景引用，使用pushToStack=true来激活目标场景
+        Engine.getInstance().activateScene(sceneRefNode.getSubScene().getName(), true);
+      } else {
+        // 普通场景切换
+        Engine.getInstance().activateScene(sceneName);
+      }
+      this.activeScene = scene;
+      this.updateTabs();
+    }
+  }
+
+  public getElement(): HTMLElement {
+    return this.container;
   }
 } 

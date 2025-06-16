@@ -4,11 +4,19 @@ import { EventEmitter } from '../utils/EventEmitter';
 import { Alert } from '@mui/material';
 import { Camera } from './Camera';
 import { getIsSceneChanged, setIsSceneChanged } from '../states/useEditorMode';
+import { SceneRefNode } from './UINode/SceneNode';
+import Engine from './Engine';
+
+interface SceneEvents {
+  nodeAdded: (node: Node3d) => void;
+  nodeRemoved: (node: Node3d) => void;
+  nodeUpdated: (node: Node3d) => void;
+}
 
 /**
  * 场景类 - 管理节点树，提供节点管理和更新功能
  */
-export class Scene {
+export class Scene extends EventEmitter {
   private name: string;
   private active: boolean = false;
   private threeScene: THREE.Scene;
@@ -17,12 +25,14 @@ export class Scene {
   private nodesList: Node3d[] = [];
   private events: EventEmitter = new EventEmitter();
   private camera: Camera;
+  private referencedScenes: Set<string>; // 跟踪引用的场景
 
   /**
    * 构造函数
    * @param name 场景名称
    */
   constructor(name: string = '默认场景') {
+    super();
     this.name = name;
     this.threeScene = new THREE.Scene();
     this.rootNode = new Node3d('根节点');
@@ -31,6 +41,7 @@ export class Scene {
     
     // 注册根节点
     this.registerNode(this.rootNode);
+    this.referencedScenes = new Set();
   }
 
   /**
@@ -83,6 +94,10 @@ export class Scene {
    * @param node 要添加的节点
    */
   addNode(node: Node3d): void {
+    if (this.nodesMap.has(node.getName())) {
+      console.warn(`Node with name ${node.getName()} already exists in scene ${this.name}`);
+      return;
+    }
     this.rootNode.addChild(node);
     if (node.getThreeObject()) {
       this.threeScene.add(node.getThreeObject()!);
@@ -212,7 +227,6 @@ export class Scene {
    * 激活场景
    */
   activate(): void {
-    
     if (this.active) return; // 避免重复激活
     
     this.active = true;
@@ -286,8 +300,8 @@ export class Scene {
    * @param event 事件名称
    * @param callback 回调函数
    */
-  on(event: string, callback: Function): void {
-    this.events.on(event, callback);
+  public override on<K extends keyof SceneEvents>(event: K, listener: SceneEvents[K]): this {
+    return super.on(event, listener);
   }
 
   /**
@@ -396,5 +410,109 @@ export class Scene {
     }
     
     return result;
+  }
+
+  // 检查是否存在循环引用
+  private checkCircularReference(targetScene: Scene): boolean {
+    const visited = new Set<string>();
+    
+    const dfs = (scene: Scene): boolean => {
+      if (visited.has(scene.getName())) {
+        return scene.getName() === targetScene.getName();
+      }
+      
+      visited.add(scene.getName());
+      
+      for (const sceneName of scene.referencedScenes) {
+        const referencedScene = Engine.getInstance().getScene(sceneName);
+        if (referencedScene && dfs(referencedScene)) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+    
+    return dfs(this);
+  }
+
+  // 添加场景引用
+  public addSceneReference(scene: Scene): boolean {
+    // 检查是否已经引用了该场景
+    if (this.referencedScenes.has(scene.getName())) {
+      console.warn(`场景 ${this.name} 已经引用了场景 ${scene.getName()}`);
+      return false;
+    }
+    
+    // 检查是否会造成循环引用
+    if (this.checkCircularReference(scene)) {
+      console.error(`添加场景 ${scene.getName()} 的引用会造成循环引用`);
+      return false;
+    }
+    
+    // 创建场景引用节点
+    const sceneRefNode = new SceneRefNode(scene);
+    this.addNode(sceneRefNode);
+    
+    // 记录引用关系
+    this.referencedScenes.add(scene.getName());
+    
+    // 触发场景更新事件
+    this.emit('nodeAdded', sceneRefNode);
+    setIsSceneChanged(getIsSceneChanged() + 1);
+    
+    console.log(`Scene: Added reference to scene ${scene.getName()} in ${this.name}`);
+    return true;
+  }
+
+  // 移除场景引用
+  public removeSceneReference(sceneName: string): void {
+    if (this.referencedScenes.has(sceneName)) {
+      // 获取要移除引用的场景
+      const referencedScene = Engine.getInstance().getSceneByName(sceneName);
+      if (!referencedScene) return;
+
+      // 查找并移除对应的 SceneRefNode
+      const sceneRefNodes = Array.from(this.nodesMap.values())
+        .filter(node => node instanceof SceneRefNode && node.getSubScene().getName() === sceneName);
+      
+      for (const node of sceneRefNodes) {
+        // 移除节点
+        this.removeNode(node);
+        // 触发场景更新事件
+        this.emit('nodeRemoved', node);
+      }
+      
+      // 从引用集合中移除
+      this.referencedScenes.delete(sceneName);
+      
+      // 触发场景更新事件
+      setIsSceneChanged(getIsSceneChanged() + 1);
+      console.log(`Scene: Removed reference to scene ${sceneName} from ${this.name}`);
+    }
+  }
+
+  // 获取所有引用的场景名称
+  public getReferencedScenes(): string[] {
+    return Array.from(this.referencedScenes);
+  }
+
+  // 检查是否引用了指定场景
+  public hasSceneReference(sceneName: string): boolean {
+    return this.referencedScenes.has(sceneName);
+  }
+
+  // 更新所有场景引用的内容
+  public updateSceneReferences(): void {
+    const sceneRefNodes = Array.from(this.nodesMap.values())
+      .filter(node => node instanceof SceneRefNode) as SceneRefNode[];
+    
+    for (const node of sceneRefNodes) {
+      node.updateContent();
+    }
+  }
+
+  public override emit<K extends keyof SceneEvents>(event: K, ...args: Parameters<SceneEvents[K]>): boolean {
+    return super.emit(event, ...args);
   }
 }

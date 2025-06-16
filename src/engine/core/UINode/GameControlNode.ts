@@ -19,15 +19,13 @@ export class GameControlNode extends BaseUINode {
   private fpsHistory: number[] = [];
   private maxFpsHistoryLength: number = 60; // 存储最近60帧数据
   private animationFrameId: number | null = null;
+  private isPlaying: boolean = false;
 
-  constructor() {
-    super('游戏控制');
-    // 设置样式和位置
-    this.size = { width: 320, height: 'auto' as any };
-    this.position = { x: 10, y: -10 };
+  constructor(name: string = 'Game Control') {
+    super(name);
+    this.setSize(40, 80);
+    this.setPosition(-40, 500);
     
-
-
     // 监听游戏状态变化
     this.createEffect(() => {
       const isPlaying = getIsPlaying();
@@ -41,31 +39,66 @@ export class GameControlNode extends BaseUINode {
   public override initialize(): void {
     super.initialize();
     
-    const contentContainer = this.getContentContainer();
-    if (!contentContainer) return;
+    const container = this.getContentContainer();
+    if (!container) return;
     
-    // 创建按钮容器
-    const buttonContainer = document.createElement('div');
-    Object.assign(buttonContainer.style, {
+    // 设置容器样式
+    Object.assign(container.style, {
       display: 'flex',
+      flexDirection: 'column',
       gap: '8px',
-      padding: '10px',
-      justifyContent: 'center'
+      padding: '8px',
+      backgroundColor: 'var(--tp-container-background-color)',
+      borderRadius: '4px'
     });
     
-    // 创建播放按钮
-    this.playButton = this.createButton('▶️ 开始', this.handlePlay.bind(this));
-    buttonContainer.appendChild(this.playButton);
-    
-    // 创建暂停按钮
-    this.pauseButton = this.createButton('⏸️ 暂停', this.handlePause.bind(this));
-    buttonContainer.appendChild(this.pauseButton);
+    // 创建开始/停止按钮
+    const playButton = document.createElement('button');
+    Object.assign(playButton.style, {
+      width: '24px',
+      height: '24px',
+      border: 'none',
+      borderRadius: '4px',
+      backgroundColor: 'transparent',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '0',
+      transition: 'background-color 0.2s ease'
+    });
+
+    // 设置图标
+    const updatePlayButtonIcon = () => {
+      playButton.innerHTML = this.isPlaying
+        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="var(--tp-label-foreground-color)"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="var(--tp-label-foreground-color)"><path d="M8 5v14l11-7z"/></svg>';
+    };
+    updatePlayButtonIcon();
+
+    // 添加悬停效果
+    playButton.addEventListener('mouseover', () => {
+      playButton.style.backgroundColor = 'var(--tp-container-background-color-active)';
+    });
+
+    playButton.addEventListener('mouseout', () => {
+      playButton.style.backgroundColor = 'transparent';
+    });
+
+    // 添加点击事件
+    playButton.addEventListener('click', () => {
+      this.isPlaying = !this.isPlaying;
+      updatePlayButtonIcon();
+      
+      // 切换游戏模式
+      Engine.getInstance().setGameMode(this.isPlaying);
+    });
+
+    container.appendChild(playButton);
     
     // 创建返回编辑器按钮
     this.returnButton = this.createButton('🔙 返回编辑器', this.handleReturn.bind(this));
-    buttonContainer.appendChild(this.returnButton);
-    
-    contentContainer.appendChild(buttonContainer);
+    container.appendChild(this.returnButton);
     
     // 创建状态显示区域
     this.statsContainer = document.createElement('div');
@@ -88,7 +121,7 @@ export class GameControlNode extends BaseUINode {
     this.fpsDisplay.textContent = 'FPS: 0.0';
     this.statsContainer.appendChild(this.fpsDisplay);
     
-    contentContainer.appendChild(this.statsContainer);
+    container.appendChild(this.statsContainer);
     
     // 初始化按钮状态
     this.updateButtonStates(getIsPlaying());
@@ -191,24 +224,6 @@ export class GameControlNode extends BaseUINode {
   }
 
   /**
-   * 处理开始游戏事件
-   */
-  private handlePlay(): void {
-    const engine = Engine.getInstance();
-    engine.startScripts();
-    setIsPlaying(true);
-  }
-
-  /**
-   * 处理暂停游戏事件
-   */
-  private handlePause(): void {
-    const engine = Engine.getInstance();
-    engine.stopScripts();
-    setIsPlaying(false);
-  }
-
-  /**
    * 处理返回编辑器事件
    */
   private handleReturn(): void {
@@ -250,6 +265,10 @@ export class GameControlNode extends BaseUINode {
    */
   public override dispose(): void {
     this.stopFPSMonitoring();
-    super.destroy();
+    // 确保在销毁时退出游戏模式
+    if (this.isPlaying) {
+      Engine.getInstance().setGameMode(false);
+    }
+    super.dispose();
   }
 } 

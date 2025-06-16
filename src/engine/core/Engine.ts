@@ -30,6 +30,8 @@ import { WebGPURenderer } from 'three/webgpu';
 import { CameraNode3D } from "./CameraNode3D";
 import { NodeCreatorUI } from './UINode/NodeCreatorUI';
 import { c } from "vite/dist/node/moduleRunnerTransport.d-DJ_mE5sf";
+import { BaseUINode } from "./UINode/BaseUINode";
+import { GameControlNode } from "./UINode/GameControlNode";
 
 export default class Engine extends EventLoopItem implements IEngine {
   private static instance: Engine | null = null;
@@ -41,8 +43,11 @@ export default class Engine extends EventLoopItem implements IEngine {
   private threeScene: THREE.Scene; // 引擎唯一的THREE场景
   // 编辑器专用场景 - 包含辅助工具和编辑器UI元素
   private editorScene: THREE.Scene;
-  // 游戏专用场景 - 仅包含游戏相关元素
+  // 游戏渲染场景 - Three.js场景容器
   private gameScene: THREE.Scene;
+  private gameSceneName:  string; // 存储初始化的游戏场景
+  // 当前激活的游戏场景节点
+  private activeGameScene: Scene | null = null;
   // 当前活动场景 - 根据模式切换
   private activeThreeScene: THREE.Scene;
   private camera: Camera;  // 当前活动相机
@@ -71,6 +76,9 @@ export default class Engine extends EventLoopItem implements IEngine {
 
   // 新增属性
   private nodeCreatorUI: NodeCreatorUI | null = null;
+  private activeScene: Scene | null = null;
+  private isGameMode: boolean = false; // 游戏模式标志
+  private uiNodes: BaseUINode[] = []; // UI节点列表
 
   constructor(canvas?: HTMLCanvasElement, physics: IPhysics | null = null) {
     super();
@@ -396,14 +404,19 @@ export default class Engine extends EventLoopItem implements IEngine {
     const isPlaying = getIsPlaying();
 
     // 更新激活的场景
-    const skipScripts = this.editorMode && !isPlaying;
-    console.log(this._activeScenes, "this._activeScenes");
-    this._activeScenes.forEach((sceneName) => {
-      const scene = this.scenes.get(sceneName);
-      if (scene) {
-        scene.update(deltaTime, skipScripts);
-      }
-    });
+    if(this.isGameMode) {
+      console.log(this.gameSceneName, "this.gameSceneName");
+      this.scenes.get(this.gameSceneName as string)?.update(deltaTime, false);
+    } else {
+      const skipScripts = this.editorMode && !isPlaying;
+      // console.log(this._activeScenes, "this._activeScenes");
+      this._activeScenes.forEach((sceneName) => {
+        const scene = this.scenes.get(sceneName);
+        if (scene) {
+          scene.update(deltaTime, skipScripts);
+        }
+      });
+    }
 
     // 根据当前模式选择要渲染的场景
     const renderScene = this.editorMode ? this.editorScene : this.gameScene;
@@ -519,6 +532,15 @@ export default class Engine extends EventLoopItem implements IEngine {
 
   public get _activeScenes (){
     return this.activeScenes;
+  }
+  public get _gameSceneName (){
+    return this.gameSceneName;
+  }
+  public set _gameSceneName (value: string) {
+    this.gameSceneName = value;
+  }
+  public setGameSceneName(name: string): void {
+    this.gameSceneName = name;
   }
 
   public set _activeScenes (value: Set<string>) {
@@ -2144,5 +2166,181 @@ export default class Engine extends EventLoopItem implements IEngine {
   // 添加获取NodeCreatorUI的方法
   public getNodeCreatorUI(): NodeCreatorUI | null {
     return this.nodeCreatorUI;
+  }
+
+  /**
+   * 设置游戏场景
+   * @param scene 要设置为游戏场景的场景
+   */
+  public setGameScene(scene: Scene): void {
+    if (!scene) {
+      console.warn('无效的场景对象');
+      return;
+    }
+    console.log(`设置游戏场景: ${scene.getName()}`);
+    this.activeGameScene = scene;
+  }
+
+  /**
+   * 获取当前游戏场景
+   * 如果没有显式设置游戏场景，则返回第一个可用场景
+   */
+  public getGameScene(): Scene | null {
+    // 如果已经设置了游戏场景，直接返回
+    if (this.activeGameScene) {
+      return this.activeGameScene;
+    }
+
+    // 如果没有设置游戏场景，使用第一个可用场景
+    const scenes = Array.from(this.scenes.values());
+    if (scenes.length > 0) {
+      const defaultScene = scenes[0];
+      console.log(`使用默认游戏场景: ${defaultScene.getName()}`);
+      return defaultScene;
+    }
+
+    console.warn('没有可用的游戏场景');
+    return null;
+  }
+
+  /**
+   * 切换游戏模式
+   * @param enabled 是否启用游戏模式
+   */
+  public setGameMode(enabled: boolean): void {
+    if(!this.gameSceneName){
+      console.warn('请先设置游戏场景');
+      return
+    }
+    this.isGameMode = enabled;
+    
+    if (enabled) {
+      // 获取游戏场景
+      const gameScene = this.scenes.get(this.gameSceneName);
+      console.log('正在进入游戏模式，场景:', gameScene?.getName());
+      
+      if (gameScene) {
+        // 1. 清理游戏渲染场景
+        while(this.gameScene.children.length > 0) {
+          this.gameScene.remove(this.gameScene.children[0]);
+        }
+        
+        // 2. 将游戏场景的内容添加到渲染场景
+        const threeObject = gameScene.threeScene.children;
+        if (threeObject) {
+          this.gameScene.add(threeObject);
+        }
+
+        // 3. 处理相机
+        // 查找场景中的相机节点
+        const sceneCameras = gameScene.findNodes((node) => node instanceof CameraNode3D) as CameraNode3D[];
+        if (sceneCameras.length > 0) {
+          // 使用找到的第一个相机节点
+          const gameCamera = sceneCameras[0];
+          this.setGameCamera(gameCamera);
+          this.camera = this.gameCamera;
+        }
+
+        // 4. 禁用编辑器控制器
+        if (this.transformControls) {
+          this.transformControls.visible = false;
+          this.transformControls.enabled = false;
+          if (this.transformControls.object) {
+            this.transformControls.detach();
+          }
+        }
+        
+        if (this.orbitControls) {
+          this.orbitControls.enabled = false;
+        }
+
+        // 5. 隐藏所有辅助工具（网格和坐标轴）
+        this.editorScene.children.forEach(child => {
+          if (child instanceof THREE.GridHelper || child instanceof THREE.AxesHelper) {
+            child.visible = false;
+          }
+        });
+        
+        // 6. 隐藏除了 GameControlNode 以外的所有 UI 节点
+        this.uiNodes.forEach(node => {
+          if (!(node instanceof GameControlNode)) {
+            node.hide();
+          }
+        });
+
+        // 7. 启动场景脚本
+        gameScene.startScripts();
+        
+        console.log('游戏模式已启用，当前场景:', gameScene.getName());
+      } else {
+        console.error('无法启用游戏模式：没有可用的场景');
+        this.isGameMode = false;
+      }
+    } else {
+      // 退出游戏模式
+      const currentGameScene = this.getGameScene();
+      if (currentGameScene) {
+        // 1. 停止场景脚本
+        currentGameScene.stopScripts();
+        
+        // 2. 清空游戏渲染场景
+        while(this.gameScene.children.length > 0) {
+          this.gameScene.remove(this.gameScene.children[0]);
+        }
+
+        // 3. 恢复编辑器相机
+        if (this.editorCamera) {
+          this.camera = this.editorCamera;
+        }
+
+        // 4. 重新启用编辑器控制器
+        if (this.transformControls) {
+          this.transformControls.visible = true;
+          this.transformControls.enabled = true;
+        }
+        
+        if (this.orbitControls) {
+          this.orbitControls.enabled = true;
+        }
+
+        // 5. 显示所有辅助工具
+        this.editorScene.children.forEach(child => {
+          if (child instanceof THREE.GridHelper || child instanceof THREE.AxesHelper) {
+            child.visible = true;
+          }
+        });
+        
+        // 6. 显示所有 UI 节点
+        this.uiNodes.forEach(node => {
+          node.show();
+        });
+      }
+      
+      console.log('游戏模式已禁用，已恢复编辑器模式');
+    }
+  }
+
+  /**
+   * 检查是否处于游戏模式
+   */
+  public isInGameMode(): boolean {
+    return this.isGameMode;
+  }
+
+  /**
+   * 注册 UI 节点
+   */
+  public registerUINode(node: BaseUINode): void {
+    this.uiNodes.push(node);
+  }
+
+  /**
+   * 取消注册 UI 节点
+   */
+  public unregisterUINode(node: BaseUINode): void {
+    const index = this.uiNodes.indexOf(node);
+    if (index !== -1) {
+      this.uiNodes.splice(index, 1);
+    }
   }
 }

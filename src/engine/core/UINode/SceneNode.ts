@@ -1,7 +1,7 @@
 import { setSelectGameSceneNode } from '../state/useSelectedNode';
 import { BaseUINode } from './BaseUINode';
 import { getAllScenes, getIsSceneChanged, getSceneSwitcherNode, setAllScenes, setSelectedObject, setSelectedNode, setIsSceneChanged } from '../../states/useEditorMode';
-import { Scene as ThreeScene, Object3D } from 'three';
+import { Scene as ThreeScene, Object3D, Group } from 'three';
 import Engine from '../Engine';
 import { Scene } from '../Scene';
 import { Node3d } from '../Node3d';
@@ -16,6 +16,84 @@ interface TreeNodeData {
   isScene?: boolean;
 }
 
+export class SceneRefNode extends Node3d {
+  private subScene: Scene;
+  private isLoaded: boolean = false;
+  private sceneGroup: Group;
+  
+  constructor(scene: Scene) {
+    super(scene.getName() + "_Ref");
+    this.subScene = scene;
+    this.setType('SceneRef');
+    this.sceneGroup = new Group();
+    this.getThreeObject()?.add(this.sceneGroup);
+    this.loadSceneContent();
+    
+    // 监听子场景的变化
+    this.subScene.on('nodeAdded', () => this.updateContent());
+    this.subScene.on('nodeRemoved', () => this.updateContent());
+    this.subScene.on('nodeUpdated', () => this.updateContent());
+  }
+  
+  private async loadSceneContent(): Promise<void> {
+    // 清除现有内容
+    this.sceneGroup.clear();
+    
+    // 获取子场景的所有节点
+    const nodes = this.subScene.getAllNodes();
+    
+    // 遍历所有节点，复制它们的 THREE.Object3D
+    for (const node of nodes) {
+      const threeObj = node.getThreeObject();
+      if (threeObj) {
+        // 克隆对象以避免引用问题
+        const clonedObj = threeObj.clone(true);
+        // 保持原始变换
+        clonedObj.position.copy(threeObj.position);
+        clonedObj.rotation.copy(threeObj.rotation);
+        clonedObj.scale.copy(threeObj.scale);
+        this.sceneGroup.add(clonedObj);
+      }
+    }
+    
+    this.isLoaded = true;
+    console.log(`SceneRefNode: Loaded content for scene ${this.subScene.getName()}, nodes count: ${nodes.length}`);
+  }
+  
+  getSubScene(): Scene {
+    return this.subScene;
+  }
+  
+  override onEnterScene(): void {
+    super.onEnterScene();
+    this.updateContent(); // 确保内容是最新的
+  }
+  
+  override onExitScene(): void {
+    super.onExitScene();
+  }
+  
+  override dispose(): void {
+    // 移除事件监听器
+    this.subScene.off('nodeAdded', () => this.updateContent());
+    this.subScene.off('nodeRemoved', () => this.updateContent());
+    this.subScene.off('nodeUpdated', () => this.updateContent());
+    
+    // 清理 THREE.Object3D
+    if (this.sceneGroup) {
+      this.sceneGroup.clear();
+    }
+    super.dispose();
+  }
+  
+  // 更新场景内容
+  public updateContent(): void {
+    console.log(`SceneRefNode: Updating content for scene ${this.subScene.getName()}`);
+    this.isLoaded = false; // 重置加载状态
+    this.loadSceneContent(); // 重新加载内容
+  }
+}
+
 /**
  * 场景节点类
  */
@@ -24,6 +102,10 @@ export class SceneNode extends BaseUINode {
   private treeContainer: HTMLElement | null;
   private sceneUpdateCallback: (() => void) | null = null;
   private sceneSwitcher: SceneSwitcherNode | null = null;
+  private selectedNode: any = null;
+  private onSelectCallback: ((node: any) => void) | null = null;
+  private expandedNodes: Set<string> = new Set();
+  private sceneRefNodes: Set<string> = new Set(); // 新增：跟踪场景引用节点
 
   constructor(name: string = '场景节点') {
     super(name);
@@ -278,6 +360,13 @@ export class SceneNode extends BaseUINode {
       childrenContainer.appendChild(connectionLine);
     }
 
+    // 检查是否是场景引用节点
+    const isSceneRef = data.data instanceof SceneRefNode;
+    if (isSceneRef) {
+      nodeContainer.classList.add('scene-ref-node');
+      this.sceneRefNodes.add(data.name);
+    }
+
     // 添加子节点（增加深度计数）
     if (data.children && Array.isArray(data.children)) {
       data.children.forEach(child => {
@@ -317,7 +406,7 @@ export class SceneNode extends BaseUINode {
           this.addToSceneSwitcher(data.data);
         }
       } else {
-        // 如果是普通节点，显示重命名对话            框
+        // 如果是普通节点，显示重命名对话框
         this.showRenameDialog(data);
       }
     });
@@ -415,10 +504,8 @@ export class SceneNode extends BaseUINode {
   /**
    * 添加节点选中事件监听器
    */
-  public onNodeSelect(callback: (data: TreeNodeData) => void): void {
-    this.element?.addEventListener('node-selected', ((e: CustomEvent<TreeNodeData>) => {
-      callback(e.detail);
-    }) as EventListener);
+  public onNodeSelect(callback: (node: any) => void): void {
+    this.onSelectCallback = callback;
   }
 
   /**

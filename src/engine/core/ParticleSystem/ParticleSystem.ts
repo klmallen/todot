@@ -246,7 +246,6 @@ export class ParticleSystem extends Node3d {
 
     // 更新渲染器
     this._renderer.update(this._particles);
-    console.log(1)
     // 更新TSL扩展
     if (this._tslExtension) {
       this._tslExtension.update(deltaTime);
@@ -261,7 +260,6 @@ export class ParticleSystem extends Node3d {
     // 根据发射率计算本帧应该发射的粒子数量
     const emissionRate = this._settings.emission.rateOverTime;
     const particlesToEmit = Math.floor(emissionRate * deltaTime);
-    console.log( this._particles,' this._particles')
     if(this._particles.length >= this._settings.maxParticles) return
     // 发射粒子
     for (let i = 0; i < particlesToEmit; i++) {
