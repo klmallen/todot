@@ -20,7 +20,7 @@ export async function runCustomMeshParticleExample(): Promise<Engine> {
     showDefaultUI: true,
     showHelpers: true,
     addDefaultLights: true,
-    useWebGPU: false
+    useWebGPU: true
   });
 
   // 创建场景 - 使用唯一的场景名称，包含时间戳避免冲突

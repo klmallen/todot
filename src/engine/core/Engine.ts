@@ -29,6 +29,7 @@ import { IEngine } from "./interfaces"; // 导入接口
 import { WebGPURenderer } from 'three/webgpu';
 import { CameraNode3D } from "./CameraNode3D";
 import { NodeCreatorUI } from './UINode/NodeCreatorUI';
+import { c } from "vite/dist/node/moduleRunnerTransport.d-DJ_mE5sf";
 
 export default class Engine extends EventLoopItem implements IEngine {
   private static instance: Engine | null = null;
@@ -394,12 +395,14 @@ export default class Engine extends EventLoopItem implements IEngine {
     // 获取播放状态
     const isPlaying = getIsPlaying();
 
-    // 更新所有场景，但只有激活的场景会实际更新其节点
-    // 如果在编辑模式且非播放状态，则传递skipScripts=true
+    // 更新激活的场景
     const skipScripts = this.editorMode && !isPlaying;
-    this._activeScenes.forEach((scene) => {
-      console.log(scene, "scene");
-      // scene.update(deltaTime, skipScripts);
+    console.log(this._activeScenes, "this._activeScenes");
+    this._activeScenes.forEach((sceneName) => {
+      const scene = this.scenes.get(sceneName);
+      if (scene) {
+        scene.update(deltaTime, skipScripts);
+      }
     });
 
     // 根据当前模式选择要渲染的场景

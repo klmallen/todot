@@ -246,7 +246,7 @@ export class ParticleSystem extends Node3d {
 
     // 更新渲染器
     this._renderer.update(this._particles);
-
+    console.log(1)
     // 更新TSL扩展
     if (this._tslExtension) {
       this._tslExtension.update(deltaTime);

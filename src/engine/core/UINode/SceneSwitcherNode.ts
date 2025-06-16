@@ -23,15 +23,6 @@ export class SceneSwitcherNode extends BaseUINode {
     this.size = { width: 400, height: 'auto' as any };
     this.position = { x: window.innerWidth - 450, y: window.innerHeight - 150 };
     
-    // 扩展基础样式
-    Object.assign(this.style, {
-      backgroundColor: 'hsla(210, 30%, 20%, 0.9)',
-      color: '#fff',
-      padding: '0',
-      borderRadius: '6px',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    });
 
     // 将自身注册到状态系统
     setSceneSwitcherNode(this);
@@ -77,11 +68,11 @@ export class SceneSwitcherNode extends BaseUINode {
     
     contentContainer.appendChild(this.tabsContainer);
     
-    // 不再初始化所有场景标签
-    // 用户需要手动添加场景
-    
     // 添加"创建新场景"按钮
     this.addCreateSceneButton();
+    
+    // 默认选中第一个场景
+    this.selectFirstScene();
   }
 
   private addCreateSceneButton(): void {
@@ -104,6 +95,35 @@ export class SceneSwitcherNode extends BaseUINode {
     
     if (this.contentContainer) {
       this.contentContainer.appendChild(createButton);
+    }
+  }
+
+  /**
+   * 选择第一个场景
+   */
+  private selectFirstScene(): void {
+    // 获取引擎实例和所有场景
+    const engine = Engine.getInstance();
+    const scenes = engine.scenes;
+    
+    if (scenes && scenes.size > 0) {
+      // 获取第一个场景
+      const firstSceneName = Array.from(scenes.keys())[0];
+      const firstScene = scenes.get(firstSceneName);
+      
+      if (firstScene) {
+        // 添加并激活第一个场景
+        this.addScene(firstScene);
+        
+        // 确保UI上显示为激活状态
+        this.updateActiveTab(firstSceneName);
+        
+        // 确保引擎中该场景被激活
+        engine.activateScene(firstSceneName, true);
+        
+        // 触发场景变更事件
+        setIsSceneChanged(getIsSceneChanged() + 1);
+      }
     }
   }
 
@@ -166,7 +186,7 @@ export class SceneSwitcherNode extends BaseUINode {
       gap: '8px',
       transition: 'background-color 0.2s'
     });
-    
+
     // 标签名称
     const nameSpan = document.createElement('span');
     nameSpan.textContent = name;
@@ -202,7 +222,7 @@ export class SceneSwitcherNode extends BaseUINode {
     tabElement.addEventListener('click', () => {
       this.switchToScene(name);
     });
-    
+
     // 鼠标悬停效果
     tabElement.addEventListener('mouseover', () => {
       if (this.activeSceneName !== name) {
@@ -307,6 +327,9 @@ export class SceneSwitcherNode extends BaseUINode {
     
     // 更新UI
     this.updateActiveTab(name);
+    
+    // 触发场景变更事件，以便SceneNode更新
+    setIsSceneChanged(getIsSceneChanged() + 1);
   }
 
   /**
@@ -316,7 +339,7 @@ export class SceneSwitcherNode extends BaseUINode {
     // 先重置所有标签样式
     this.sceneTabs.forEach((tab) => {
       tab.isActive = false;
-      tab.element.style.backgroundColor = 'hsla(210, 30%, 30%, 1)';
+      tab.element.style.backgroundColor = 'var(--tp-container-background-color)';
       tab.element.style.fontWeight = 'normal';
     });
     
@@ -324,7 +347,7 @@ export class SceneSwitcherNode extends BaseUINode {
     if (name && this.sceneTabs.has(name)) {
       const activeTab = this.sceneTabs.get(name)!;
       activeTab.isActive = true;
-      activeTab.element.style.backgroundColor = 'hsla(210, 50%, 40%, 1)';
+      activeTab.element.style.backgroundColor = 'var(--tp-container-background-color-active)';
       activeTab.element.style.fontWeight = 'bold';
     }
     
@@ -362,7 +385,7 @@ export class SceneSwitcherNode extends BaseUINode {
       this.switchToScene(name);
       return;
     }
-    
+
     // 添加新标签
     this.addSceneTab(name, scene);
     this.renderTabs();

@@ -26,15 +26,7 @@ export class GameControlNode extends BaseUINode {
     this.size = { width: 320, height: 'auto' as any };
     this.position = { x: 10, y: -10 };
     
-    // 扩展基础样式
-    Object.assign(this.style, {
-      backgroundColor: 'hsla(215, 30%, 25%, 0.9)',
-      color: '#fff',
-      padding: '0',
-      borderRadius: '6px',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    });
+
 
     // 监听游戏状态变化
     this.createEffect(() => {

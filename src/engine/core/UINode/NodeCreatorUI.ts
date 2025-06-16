@@ -3,7 +3,7 @@ import { Node3d } from '../Node3d';
 import { Scene } from '../Scene';
 import { IEngine } from '../interfaces';
 import Engine from '../Engine';
-import { getSelectedNode, getIsSceneChanged, setIsSceneChanged, setSelectedNode } from '../../states/useEditorMode';
+import { getSelectedNode, getIsSceneChanged, setIsSceneChanged, setSelectedNode, setSelectedObject } from '../../states/useEditorMode';
 import { EventEmitter } from '../../utils/EventEmitter';
 import EventLoopItem from '../../utils/EventLoopItem';
 import { MeshInstance3D } from '../MeshInstance3D';
@@ -245,12 +245,13 @@ export class NodeCreatorUI extends BaseUINode {
     Object.assign(item.style, {
       padding: '8px 10px',
       borderRadius: '4px',
-      backgroundColor: 'hsla(40, 3%, 95%, 1.00)',
+      backgroundColor: 'var(--tp-container-background-color)',
       cursor: 'pointer',
       transition: 'background-color 0.2s',
       display: 'flex',
       alignItems: 'center',
-      gap: '8px'
+      gap: '8px',
+      color: 'var(--tp-label-foreground-color)'
     });
     
     // 图标（如果有）
@@ -287,11 +288,11 @@ export class NodeCreatorUI extends BaseUINode {
     
     // 悬停效果
     item.addEventListener('mouseover', () => {
-      item.style.backgroundColor = 'hsla(40, 3%, 85%, 1.00)';
+      item.style.backgroundColor = 'var(--tp-container-background-color-active)';
     });
     
     item.addEventListener('mouseout', () => {
-      item.style.backgroundColor = 'hsla(40, 3%, 95%, 1.00)';
+      item.style.backgroundColor = 'var(--tp-container-background-color)';
     });
     
     // 点击创建节点
@@ -340,8 +341,136 @@ export class NodeCreatorUI extends BaseUINode {
       return;
     }
     
-    // 创建唯一名称
-    const baseName = nodeType.name;
+    // 创建输入对话框
+    const dialogContainer = document.createElement('div');
+    dialogContainer.className = 'node-name-dialog';
+    Object.assign(dialogContainer.style, {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: '999999'
+    });
+    
+    const dialog = document.createElement('div');
+    Object.assign(dialog.style, {
+      backgroundColor: 'hsla(40, 3%, 95%, 1.00)',
+      padding: '20px',
+      borderRadius: '8px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+      width: '300px',
+      maxWidth: '90%'
+    });
+    
+    const title = document.createElement('h3');
+    title.textContent = `创建${nodeType.name}`;
+    Object.assign(title.style, {
+      margin: '0 0 15px 0',
+      fontSize: '18px',
+      color: '#333'
+    });
+    
+    const form = document.createElement('form');
+    form.onsubmit = (e) => e.preventDefault();
+    
+    const inputLabel = document.createElement('label');
+    inputLabel.textContent = '节点名称:';
+    inputLabel.htmlFor = 'node-name-input';
+    Object.assign(inputLabel.style, {
+      display: 'block',
+      marginBottom: '5px',
+      color: '#333'
+    });
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'node-name-input';
+    input.value = nodeType.name; // 默认使用节点类型名称
+    Object.assign(input.style, {
+      width: '100%',
+      padding: '8px',
+      marginBottom: '15px',
+      boxSizing: 'border-box',
+      border: '1px solid #ccc',
+      borderRadius: '4px',
+      color: '#333'
+    });
+    input.focus();
+    
+    const buttonContainer = document.createElement('div');
+    Object.assign(buttonContainer.style, {
+      display: 'flex',
+      justifyContent: 'flex-end',
+      gap: '10px'
+    });
+    
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = '取消';
+    Object.assign(cancelButton.style, {
+      padding: '8px 12px',
+      backgroundColor: '#ccc',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer'
+    });
+    
+    const createButton = document.createElement('button');
+    createButton.textContent = '创建';
+    Object.assign(createButton.style, {
+      padding: '8px 12px',
+      backgroundColor: 'hsla(210, 50%, 40%, 1)',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer'
+    });
+    
+    form.appendChild(inputLabel);
+    form.appendChild(input);
+    buttonContainer.appendChild(cancelButton);
+    buttonContainer.appendChild(createButton);
+    form.appendChild(buttonContainer);
+    
+    dialog.appendChild(title);
+    dialog.appendChild(form);
+    dialogContainer.appendChild(dialog);
+    
+    document.body.appendChild(dialogContainer);
+    
+    // 处理取消按钮点击
+    cancelButton.onclick = () => {
+      document.body.removeChild(dialogContainer);
+    };
+    
+    // 处理创建按钮点击
+    createButton.onclick = () => {
+      const nodeName = input.value.trim();
+      if (nodeName) {
+        this.createNodeWithName(nodeType, nodeName, scene);
+      }
+      document.body.removeChild(dialogContainer);
+    };
+    
+    // 处理回车键
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        createButton.click();
+      } else if (e.key === 'Escape') {
+        cancelButton.click();
+      }
+    };
+  }
+  
+  /**
+   * 使用指定名称创建节点
+   */
+  private createNodeWithName(nodeType: NodeType, baseName: string, scene: Scene): void {
     let nodeName = baseName;
     let counter = 1;
     
@@ -362,11 +491,17 @@ export class NodeCreatorUI extends BaseUINode {
       scene.addNode(newNode);
     }
     
-    // 触发场景变更事件
-    setIsSceneChanged(getIsSceneChanged() + 1);
-    
     // 设置选中节点
     setSelectedNode(newNode);
+    
+    // 尝试获取变换控制器并附加到新节点
+    setTimeout(() => {
+      const threeObject = newNode.getThreeObject();
+      if (threeObject) {
+        // 使用setSelectedObject触发变换控制器的附加
+        setSelectedObject(threeObject);
+      }
+    }, 10);
   }
 
   /**
@@ -380,13 +515,35 @@ export class NodeCreatorUI extends BaseUINode {
    * 设置上下文菜单
    */
   private setupContextMenu(): void {
-    // 监听右键点击事件
+    // 监听右键点击事件，针对画布区域
     document.addEventListener('contextmenu', (e) => {
       // 只在编辑器模式下启用
       if (!this.engine.isEditorMode()) return;
       
-      e.preventDefault();
-      this.showContextMenu(e.clientX, e.clientY);
+      // 获取当前活动场景，如果没有活动场景则不显示菜单
+      const activeScenes = this.engine.getAllScenes().filter(scene => scene.isActive());
+      if (activeScenes.length === 0) return;
+      
+      // 检查点击位置是否在编辑器区域内
+      const canvas = document.querySelector('canvas');
+      if (canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const isInCanvas = (
+          e.clientX >= rect.left && 
+          e.clientX <= rect.right && 
+          e.clientY >= rect.top && 
+          e.clientY <= rect.bottom
+        );
+        
+        if (isInCanvas) {
+          e.preventDefault();
+          this.showContextMenu(e.clientX, e.clientY);
+        }
+      } else {
+        // 如果找不到canvas，就在任何地方都显示菜单
+        e.preventDefault();
+        this.showContextMenu(e.clientX, e.clientY);
+      }
     });
     
     // 点击其他地方关闭菜单

@@ -7,8 +7,8 @@ interface Position {
 }
 
 interface Size {
-  width: number;
-  height: number;
+  width: number | string;
+  height: number | string;
 }
 
 interface UIStyle {
@@ -34,7 +34,21 @@ export class BaseUINode extends EventLoopItem {
   protected visible: boolean;
   protected position: Position;
   protected size: Size;
-  protected style: UIStyle;
+  protected style: UIStyle = {
+    backgroundColor: 'var(--tp-base-background-color)',
+    color: 'var(--tp-container-foreground-color)',
+    borderRadius: '0',
+    boxShadow: '0 2px 10px var(--tp-base-shadow-color)',
+    padding: '0',
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '12px',
+    position: 'absolute',
+    zIndex: 1000,
+    overflow: 'hidden',
+    userSelect: 'none',
+    cursor: 'default',
+    border: '1px solid var(--tp-groove-foreground-color)'
+  };
   protected isDragging: boolean;
   protected dragOffset: Position;
   protected isExpanded: boolean;
@@ -53,20 +67,15 @@ export class BaseUINode extends EventLoopItem {
     this.isExpanded = true;
     this.contentContainer = null;
     
-    this.style = {
-      backgroundColor: 'hsla(40, 3%, 90%, 1.00)',
-      color: 'hsla(40, 3%, 20%, 1.00)',
-      borderRadius: '4px',
-      boxShadow: '0 2px 10px hsla(0, 0%, 0%, 0.30)',
-      padding: '0',
-      fontFamily: 'Arial, sans-serif',
-      fontSize: '14px',
-      position: 'absolute',
-      zIndex: 1000,
-      overflow: 'hidden',
-      userSelect: 'none',
-      cursor: 'default'
-    };
+    // 使style只读
+    Object.freeze(this.style);
+  }
+
+  /**
+   * 获取节点名称
+   */
+  public getName(): string {
+    return this.name;
   }
 
   /**
@@ -104,30 +113,25 @@ export class BaseUINode extends EventLoopItem {
     const header = document.createElement('div');
     header.className = 'ui-node-header';
     Object.assign(header.style, {
-      backgroundColor: 'hsla(40, 3%, 55%, 1.00)',
-      color: 'hsla(40, 3%, 20%, 1.00)',
-      padding: '8px 12px',
-      fontWeight: 'bold',
-      borderBottom: '1px solid hsla(40, 3%, 60%, 1.00)',
+      backgroundColor: 'var(--tp-base-background-color)',
+      color: 'var(--tp-container-foreground-color)',
+      padding: '4px 8px',
+      fontWeight: 'normal',
+      fontSize: '12px',
+      borderBottom: '1px solid var(--tp-groove-foreground-color)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       cursor: 'move',
       userSelect: 'none',
-      height: '32px',
+      height: '24px',
       boxSizing: 'border-box'
     });
 
-    // 添加标题和图标容器
-    const titleContainer = document.createElement('div');
-    titleContainer.style.display = 'flex';
-    titleContainer.style.alignItems = 'center';
-    titleContainer.style.gap = '8px';
-
+    // 添加标题
     const title = document.createElement('span');
     title.textContent = this.name;
-    titleContainer.appendChild(title);
-    header.appendChild(titleContainer);
+    header.appendChild(title);
 
     // 添加展开/折叠按钮
     const toggleBtn = document.createElement('button');
@@ -137,19 +141,18 @@ export class BaseUINode extends EventLoopItem {
       border: 'none',
       color: 'inherit',
       cursor: 'pointer',
-      fontSize: '16px',
+      fontSize: '14px',
       padding: '0 4px',
-      width: '20px',
-      height: '20px',
+      width: '16px',
+      height: '16px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: '4px',
       transition: 'background-color 0.2s'
     });
 
     toggleBtn.addEventListener('mouseover', () => {
-      toggleBtn.style.backgroundColor = 'hsla(40, 3%, 50%, 0.5)';
+      toggleBtn.style.backgroundColor = 'var(--tp-container-background-color-hover)';
     });
 
     toggleBtn.addEventListener('mouseout', () => {
@@ -337,11 +340,11 @@ export class BaseUINode extends EventLoopItem {
   /**
    * 设置大小
    */
-  public setSize(width: number, height: number): void {
-    this.size = { width, height };
+  public setSize(width: number | string, height: number | string): void {
+    this.size = { width, height } as Size;
     if (this.element && this.isExpanded) {
-      this.element.style.width = `${width}px`;
-      this.element.style.height = `${height}px`;
+      this.element.style.width = width === 'auto' ? '100%' : `${width}px`;
+      this.element.style.height = height === 'auto' ? '100%' : `${height}px`;
     }
   }
 

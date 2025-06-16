@@ -1166,7 +1166,7 @@ async function createRemapXSwordTrail(
             console.log(`流动刀光脚本已就绪`);
             
             // 创建UI控制面板
-            // this.createControlUI();
+            this.createControlUI();
         }
         
         private createControlUI(): void {

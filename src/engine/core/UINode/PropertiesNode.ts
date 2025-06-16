@@ -38,15 +38,10 @@ export class PropertiesNode extends BaseUINode {
 
   constructor() {
     super('PropertiesNode');
-    this.size = { width: 300, height: 600 };
-    this.position = { x: window.innerWidth - 310, y: 10 };
+    this.size = { width: 300, height: 'auto' };
+    this.position = { x: window.innerWidth - 300, y: 0 };
     this.pane = null;
     this.container = null;
-    
-    // 扩展基础样式
-    Object.assign(this.style, {
-      backgroundColor: 'hsla(40, 3%, 70%, 1.00)'
-    });
   }
 
   /**

@@ -21,11 +21,31 @@ import { PropertiesNode } from './engine/core/UINode/PropertiesNode';
 import { CameraFollowMode } from './engine/core/CameraNode3D';
 import { SceneSwitcherNode } from './engine/core/UINode/SceneSwitcherNode'; 
 import { GameControlNode } from './engine/core/UINode/GameControlNode';
+import { ResourceListNode } from './engine/core/UINode/ResourceListNode';
+import { MinMaxCurve } from './engine/core/ParticleSystem/Curves/MinMaxCurve';
+import { ColorCurve } from './engine/core/ParticleSystem/Curves/ColorCurve';
+import { GradientCurve } from './engine/core/ParticleSystem/Curves/GradientCurve';
+import { ParticleSystemSettings } from './engine/core/ParticleSystem/ParticleSystemSettings';
+import { ParticleSystem } from './engine/core/ParticleSystem/ParticleSystem';
+import { UIPanelManager } from './engine/core/UINode/UIPanelManager';
+
+// 创建粒子特效类（临时定义，实际应该在单独的文件中）
+class SwordTrailParticle extends ModelLoader3D {
+  constructor(name: string, modelPath: string) {
+    super(name, modelPath);
+    this.setType('SwordTrail');
+  }
+  
+  // 这里可以添加粒子特效的特殊方法
+}
+
 // 创建UI节点
 const sceneTreeNode = new SceneNode();
 const propertiesNode = new PropertiesNode();
 const sceneSwitcherNode = new SceneSwitcherNode();  
 const gameControlNode = new GameControlNode();
+const resourceListNode = new ResourceListNode();
+const uIPanelManager  = new UIPanelManager()
 
 // 创建引擎
 const engine = await new Engine().init({
@@ -40,6 +60,14 @@ gameControlNode.initialize();
 sceneTreeNode.initialize();
 propertiesNode.initialize();
 sceneSwitcherNode.initialize();
+resourceListNode.initialize();
+uIPanelManager.initialize()
+
+// uIPanelManager.addNode(sceneTreeNode)
+// uIPanelManager.addNode(propertiesNode)
+uIPanelManager.addNode(sceneSwitcherNode)
+uIPanelManager.addNode(resourceListNode)
+uIPanelManager.addNode(gameControlNode)
 async function loadScene(){
   // 创建主场景
 const mainScene = new Scene("主场景");
@@ -78,6 +106,161 @@ mainScene.addNode(playerNode);
 const modelNode = new ModelLoader3D("玩家模型", '../public/models/toy_terror_chogath.glb');
 modelNode.setScale(0.01,0.01,0.01)
 playerNode.addChild(modelNode);
+
+
+  // 创建粒子系统节点
+  const particleSystem = new ParticleSystem('球体粒子系统');
+
+  // 设置位置
+  particleSystem.position.set(0, 2, 0);
+
+  // 创建自定义网格 - 使用球体
+  const sphereMesh = new THREE.SphereGeometry(0.2, 16, 16);
+
+  // 配置粒子系统
+  const settings: Partial<ParticleSystemSettings> = {
+    duration: 5.0,
+    loop: true,
+    startLifetime: new MinMaxCurve(2.0, 3.0),
+    startSpeed: new MinMaxCurve(3.0, 5.0),
+    startSize: new MinMaxCurve(0.5, 0.8),
+    startRotation: new MinMaxCurve(0, Math.PI * 2),
+    startColor: new ColorCurve(
+      new THREE.Color(0.0, 0.5, 1.0), // 蓝色
+      new THREE.Color(0.0, 0.0, 1.0)  // 深蓝色
+    ),
+    emission: {
+      rateOverTime: 15
+    },
+    shape: {
+      type: 'Sphere',
+      params: {
+        sphere: {
+          radius: 0.1,
+          emitFrom: 'Volume'
+        }
+      },
+      randomizeDirection: true,
+      directionScale: 1.0
+    },
+    sizeOverLifetime: new GradientCurve([
+      { time: 0, value: 1.0 },
+      { time: 1.0, value: 0.0 }
+    ]),
+    colorOverLifetime: new ColorCurve(
+      new THREE.Color(0.0, 0.5, 1.0),
+      new THREE.Color(0.0, 0.0, 1.0)
+    ),
+    rotationOverLifetime: new MinMaxCurve(-1.0, 1.0),
+    renderer: {
+      renderMode: 'Mesh', // 重要：必须设置为Mesh模式
+      mesh: sphereMesh,   // 设置自定义网格
+      blending: true,
+      blendMode: THREE.NormalBlending as THREE.BlendingDstFactor, // 修改为NormalBlending以避免类型错误
+      enableLighting: false,
+      castShadows: false,
+      receiveShadows: false,
+      sortMode: 'None',
+      maxStretchFactor: 3.0,
+      speedScale: 0.5,
+      alignToDirection: false
+    }
+  };
+
+  // 应用设置
+  particleSystem.setSettings(settings);
+
+  // 设置自定义网格 - 这一步很重要，确保在设置settings后再次设置
+  particleSystem.setCustomMesh(sphereMesh);
+
+  // 添加到场景
+  mainScene.addNode(particleSystem);
+
+  // 播放粒子系统
+  particleSystem.play();
+
+  // 创建第二个粒子系统 - 使用Billboard模式
+  const billboardParticleSystem = new ParticleSystem('广告牌粒子系统');
+  billboardParticleSystem.position.set(3, 2, 0);
+  
+  // 创建圆形纹理
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.beginPath();
+    ctx.arc(64, 64, 60, 0, Math.PI * 2);
+    const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    gradient.addColorStop(0.5, 'rgba(64, 128, 255, 0.5)');
+    gradient.addColorStop(1, 'rgba(0, 0, 255, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fill();
+  }
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  
+  // 配置粒子系统
+  const billboardSettings: Partial<ParticleSystemSettings> = {
+    duration: 5.0,
+    loop: true,
+    startLifetime: new MinMaxCurve(1.0, 2.0),
+    startSpeed: new MinMaxCurve(2.0, 3.0),
+    startSize: new MinMaxCurve(0.3, 0.6),
+    startRotation: new MinMaxCurve(0, Math.PI * 2),
+    startColor: new ColorCurve(
+      new THREE.Color(1.0, 1.0, 1.0), // 白色
+      new THREE.Color(0.5, 0.8, 1.0)  // 浅蓝色
+    ),
+    emission: {
+      rateOverTime: 20
+    },
+    shape: {
+      type: 'Sphere',
+      params: {
+        sphere: {
+          radius: 0.1,
+          emitFrom: 'Shell'
+        }
+      },
+      randomizeDirection: true,
+      directionScale: 1.0
+    },
+    sizeOverLifetime: new GradientCurve([
+      { time: 0, value: 0.0 },
+      { time: 0.1, value: 1.0 },
+      { time: 1.0, value: 0.0 }
+    ]),
+    colorOverLifetime: new ColorCurve(
+      new THREE.Color(1.0, 1.0, 1.0),
+      new THREE.Color(0.0, 0.5, 1.0)
+    ),
+    renderer: {
+      renderMode: 'Billboard', 
+      texture: texture,
+      blending: true,
+      blendMode: THREE.NormalBlending as THREE.BlendingDstFactor,
+      enableLighting: false,
+      castShadows: false,
+      receiveShadows: false,
+      sortMode: 'None',
+      maxStretchFactor: 3.0,
+      speedScale: 0.5,
+      alignToDirection: false
+    }
+  };
+  
+  // 应用设置
+  billboardParticleSystem.setSettings(billboardSettings);
+  
+  // 添加到场景
+  mainScene.addNode(billboardParticleSystem);
+  
+  // 播放粒子系统
+  billboardParticleSystem.play();
 
 setTimeout(() => {
   const _modelNode = new ModelLoader3D("玩家模型", '../public/models/inkshadow_volibear.glb');
@@ -175,20 +358,38 @@ playerNode.addScript(PlayerController);
 sceneTreeNode.onNodeSelect((nodeData) => {
   if (nodeData.data) {
     const object = nodeData.data;
-    const properties = {
-      name: nodeData.name,
-      transform: {
-        position: object.position,
-        rotation: object.rotation,
-        scale: object.scale
+    
+    // 判断对象类型
+    if (object instanceof Node3d) {
+      const properties = {
+        name: nodeData.name,
+        transform: {
+          position: object.position,
+          rotation: object.rotation,
+          scale: object.scale
+        }
+      };
+      
+      // 如果是MeshInstance3D类型，添加材质属性
+      if (object instanceof MeshInstance3D && object.getMaterial) {
+        const finalProps = {
+          ...properties,
+          material: object.getMaterial()
+        };
+        propertiesNode.updateProperties(finalProps);
+      } else {
+        propertiesNode.updateProperties(properties);
       }
-    };
-    
-    if (object instanceof MeshInstance3D) {
-      properties.material = object.getMaterial();
+    } else if (object instanceof Scene) {
+      // 场景对象的属性
+      const properties = {
+        name: nodeData.name,
+        type: 'Scene',
+        nodeCount: object.getAllNodes ? object.getAllNodes().length : 0
+      };
+      
+      propertiesNode.updateProperties(properties);
     }
-    
-    propertiesNode.updateProperties(properties);
   }
 });
 }

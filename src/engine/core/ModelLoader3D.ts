@@ -3,6 +3,7 @@ import { Node3d } from './Node3d';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 import { editable, editableComponent } from './decorators';
+import { Object3D, Object3DEventMap, Group, AnimationObjectGroup } from 'three';
 
 /**
  * 动画选项接口
@@ -259,62 +260,51 @@ export class ModelLoader3D extends Node3d implements PromiseLike<THREE.Group> {
       (gltf) => {
         console.log('GLTF模型加载成功:', gltf);
         this.model = gltf.scene;
-        this.getThreeObject().add(this.model);
-        this.setType('ModelLoader3D');
-        this.addTag('model');
-        this.addTag('renderable');
-
-        // 初始化动画混合器
+        
         if (this.model) {
+          this.getThreeObject().add(this.model);
+          this.setType('ModelLoader3D');
+          this.addTag('model');
+          this.addTag('renderable');
+
+          // 初始化动画混合器
           this.mixer = new THREE.AnimationMixer(this.model);
 
           // 添加事件监听器
           this.mixer.addEventListener('finished', this.onAnimationFinished.bind(this));
           this.mixer.addEventListener('loop', this.onAnimationLoop.bind(this));
-        }
 
-        // 缓存动画数据
-        if (gltf.animations && gltf.animations.length > 0) {
-          this.addAnimations = gltf.animations;
-          gltf.animations.forEach(animation => {
-            this.animations.set(animation.name, animation);
-          });
+          // 缓存动画数据
+          if (gltf.animations && gltf.animations.length > 0) {
+            this.addAnimations = gltf.animations;
+            gltf.animations.forEach(animation => {
+              this.animations.set(animation.name, animation);
+            });
 
-          // 输出可用动画
-          const animNames = this.getAnimationNames();
-          if (animNames.length > 0) {
-            console.log(`模型 [${this.name}] 可用动画:`, animNames);
+            // 输出可用动画
+            const animNames = this.getAnimationNames();
+            if (animNames.length > 0) {
+              console.log(`模型 [${this.name}] 可用动画:`, animNames);
+            }
           }
-        }
-
-        // 处理模型结构，默认隐藏骨骼和辅助对象
-        this.model.traverse((object: THREE.Object3D) => {
-          // 骨骼和辅助对象的可见性现在由showSkeleton控制
-          if (object.type === 'Bone' ||
-              object.name.includes('helper') ||
-              object.name.includes('Helper') ||
-              object.name.includes('Skeleton') ||
-              object.name.includes('Control')) {
-            object.visible = this.showSkeleton;
+          
+          // 调用我们的模型加载完成处理
+          this.onModelLoaded();
+          
+          // 调用加载完成回调
+          if (this.onLoadedCallback) {
+            this.onLoadedCallback(this.model);
           }
-        });
-        
-        // 调用我们的模型加载完成处理
-        this.onModelLoaded();
-        
-        // 调用加载完成回调
-        if (this.onLoadedCallback && this.model) {
-          this.onLoadedCallback(this.model);
-        }
-        
-        // 解析Promise
-        if (this.modelResolve && this.model) {
-          this.modelResolve(this.model);
-        }
-        
-        // 如果有默认状态，自动播放
-        if (this.defaultState) {
-          this.transitionTo(this.defaultState);
+          
+          // 解析Promise
+          if (this.modelResolve) {
+            this.modelResolve(this.model);
+          }
+          
+          // 如果有默认状态，自动播放
+          if (this.defaultState) {
+            this.transitionTo(this.defaultState);
+          }
         }
       },
       undefined,
@@ -337,72 +327,60 @@ export class ModelLoader3D extends Node3d implements PromiseLike<THREE.Group> {
     
     this.fbxLoader.load(
       path,
-      (fbxModel) => {
+      (fbxModel: Object3D<Object3DEventMap>) => {
         console.log('FBX模型加载成功:', fbxModel);
         
         // FBX加载器直接返回Object3D，需要包装成Group
         this.model = new THREE.Group();
-        this.model.add(fbxModel);
-        
-        this.getThreeObject().add(this.model);
-        this.setType('ModelLoader3D');
-        this.addTag('model');
-        this.addTag('renderable');
-
-        // 初始化动画混合器
         if (this.model) {
+          this.model.add(fbxModel);
+          
+          this.getThreeObject().add(this.model);
+          this.setType('ModelLoader3D');
+          this.addTag('model');
+          this.addTag('renderable');
+
+          // 初始化动画混合器
           this.mixer = new THREE.AnimationMixer(this.model);
           
           // 添加事件监听器
           this.mixer.addEventListener('finished', this.onAnimationFinished.bind(this));
           this.mixer.addEventListener('loop', this.onAnimationLoop.bind(this));
-        }
-        
-        // 缓存动画数据
-        if (fbxModel.animations && fbxModel.animations.length > 0) {
-          this.addAnimations = fbxModel.animations;
-          fbxModel.animations.forEach((animation: THREE.AnimationClip) => {
-            this.animations.set(animation.name, animation);
-          });
           
-          // 输出可用动画
-          const animNames = this.getAnimationNames();
-          if (animNames.length > 0) {
-            console.log(`模型 [${this.name}] 可用动画:`, animNames);
+          // 缓存动画数据
+          if (fbxModel.animations && fbxModel.animations.length > 0) {
+            this.addAnimations = fbxModel.animations;
+            fbxModel.animations.forEach((animation: THREE.AnimationClip) => {
+              this.animations.set(animation.name, animation);
+            });
+            
+            // 输出可用动画
+            const animNames = this.getAnimationNames();
+            if (animNames.length > 0) {
+              console.log(`模型 [${this.name}] 可用动画:`, animNames);
+            }
           }
-        }
-        
-        // 处理模型结构
-        this.model.traverse((object: THREE.Object3D) => {
-          // 隐藏骨骼和辅助对象
-          if (object.type === 'Bone' || 
-              object.name.includes('helper') || 
-              object.name.includes('Helper') ||
-              object.name.includes('Skeleton') ||
-              object.name.includes('Control')) {
-            object.visible = false;
+          
+          // 调用加载完成回调
+          if (this.onLoadedCallback) {
+            console.log('调用模型加载完成回调');
+            this.onLoadedCallback(this.model);
           }
-        });
-        
-        // 调用加载完成回调
-        if (this.onLoadedCallback && this.model) {
-          console.log('调用模型加载完成回调');
-          this.onLoadedCallback(this.model);
+          
+          // 解析Promise
+          if (this.modelResolve) {
+            console.log('解析模型加载Promise');
+            this.modelResolve(this.model);
+          }
+          
+          // 如果有默认状态，自动播放
+          if (this.defaultState) {
+            this.transitionTo(this.defaultState);
+          }
+          
+          // 关键部分：确保模型加载后立即渲染
+          this.ensureRender();
         }
-        
-        // 解析Promise
-        if (this.modelResolve && this.model) {
-          console.log('解析模型加载Promise');
-          this.modelResolve(this.model);
-        }
-        
-        // 如果有默认状态，自动播放
-        if (this.defaultState) {
-          this.transitionTo(this.defaultState);
-        }
-        
-        // 关键部分：确保模型加载后立即渲染
-        this.ensureRender();
       },
       // 进度回调
       (progress) => {
